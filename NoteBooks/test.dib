@@ -1,0 +1,20 @@
+#!meta
+
+{"kernelInfo":{"defaultKernelName":"pwsh","items":[{"aliases":[],"languageName":"pwsh","name":"pwsh"}]}}
+
+#!markdown
+
+# Laptop Setup
+
+### Setup using the Homebrew package manager
+
+https://formulae.brew.sh/
+
+- brew install --cask 1password
+- brew install --cask dotnet-sdk
+- brew install --cask powershell
+- brew install --cask visual-studio-code
+
+#!pwsh
+
+brew list
