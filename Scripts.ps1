@@ -1,31 +1,48 @@
 Import-Module AWS.Tools.Common
 Import-Module AWS.Tools.DynamoDBv2
 Import-Module AWS.Tools.RDS
+Import-Module AWS.Tools.Backup
+
+
 
 $RegexGroup             = 'AccountNumber'
 $RegexGroupAccountName  = 'AccountName'
 $RegexAccountNumber     = "(?<$RegexGroup>\d+):db.+$"
 $RegexAccountNumberDDb  = "(?<$RegexGroup>\d+):table.+$" 
 $RegexAccountName       = "(?<PreFix>DevOps-)(?<$RegexGroupAccountName>.+)"
-$Profiles               = Get-AWSCredentials -ListProfileDetail | Where-Object { $_.ProfileName -match 'DevOps-Apex-PROD' }
+$Profile                = Get-AWSCredentials -ListProfileDetail | Where-Object { $_.ProfileName -match 'DevOps-Apex-PROD' }
 $Regions                = "eu-central-1" , "eu-west-2" , "eu-west-1", "us-east-1"
 
-$ddbTableList = Get-DDBTableList -ProfileName DevOps-Apex-PROD
+$ddbBackupList          = Get-DDBBackupList -ProfileName $Profile.ProfileName 
+$ddbTableList           = Get-DDBTableList -ProfileName $Profile.ProfileName
 
 $ddbTables  = @()
 foreach ($ddbTable in $ddbTableList) {
     
-    $Table = Get-DDBTable -TableName $ddbTable -ProfileName DevOps-Apex-PROD
+    $Table = Get-DDBTable -TableName $ddbTable -ProfileName $Profile.ProfileName
+
+    if ($ddbBackupList) {
+        
+        $BackupAvailable = $ddbBackupList.TableName.Contains("$($Table.TableName)")
+    }
+    else {
+
+        $BackupAvailable = $false
+    }
+    
 
     $Sum = [PSCustomObject]@{
 
         TableName           = $Table.TableName
+        TableBackup         = $BackupAvailable
         CreationDateTime    = $Table.CreationDateTime
         ItemCount           = $Table.ItemCount
         TableSizeBytes      = $Table.TableSizeBytes
         TableSizeMB         = "$([math]::round($($Table.TableSizeBytes /1MB), 0)) MB"
         TableStatus         = $Table.TableStatus
-        TableId             = $Table.TableId
+        
+        # TableId             = $Table.TableId
+        
         # KeySchema           = $Table.KeySchema
         # GlobalSecondaryIndexes = $Table.GlobalSecondaryIndexes
         
@@ -35,9 +52,11 @@ foreach ($ddbTable in $ddbTableList) {
 $ddbTables | Format-Table -AutoSize
 
 
-$(117111222 /1MB)
-"$([math]::round($(117111222 /1MB), 0)) MB"
-"$([math]::round($(117111222 /1MB), 0)) MB"
+Get-DDBBackupList -ProfileName DBA-Sandpit
+Get-Command -Module AWS.Tools.DynamoDBv2
+
+New-DDBBackup -TableName 'DBAParameters' -ProfileName DBA-Sandpit -BackupName 'DBAParameters-Backup2'
+
 # $Summary    = @()
 # foreach ($Profile in $Profiles) {
 
