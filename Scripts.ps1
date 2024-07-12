@@ -8,21 +8,22 @@ $RegexGroupAccountName  = 'AccountName'
 $RegexAccountNumber     = "(?<$RegexGroup>\d+):db.+$"
 $RegexAccountNumberDDb  = "(?<$RegexGroup>\d+):table.+$" 
 $RegexAccountName       = "(?<PreFix>DevOps-)(?<$RegexGroupAccountName>.+)"
-$Profile                = Get-AWSCredentials -ListProfileDetail | Where-Object { $_.ProfileName -match 'DevOps-Owner-Services-PROD' }
+$Profiles                = Get-AWSCredentials -ListProfileDetail | Where-Object { $_.ProfileName -match 'DevOps-Owner-Services-PROD' }
 $Regions                = "eu-central-1" , "eu-west-2" , "eu-west-1", "us-east-1"
 
 $ddbBackupList          = Get-DDBBackupList -ProfileName $Profile.ProfileName 
 $ddbTableList           = Get-DDBTableList -ProfileName $Profile.ProfileName
 
 
-$RDSInstances = Get-RDSDBInstance -ProfileName $Profile.ProfileName -Region eu-west-2
+$RDSInstances = Get-RDSDBInstance -ProfileName $Profiles.ProfileName -Region eu-west-2
 
 $Inst = @()
+$Snapshots = @()
 foreach ($Instance in $RDSInstances) {
     
     $DBInstanceArn      = $Instance.DBInstanceArn
     # $Tags               = Get-RDSTagForResource -ResourceName $DBInstanceArn -ProfileName $Profile.ProfileName
-    $Snapshots          = Get-RDSDBSnapshot -ProfileName $Profile.ProfileName -DBInstanceIdentifier $DBInstanceArn
+    $Shots          = Get-RDSDBSnapshot -ProfileName $Profiles.ProfileName -DBInstanceIdentifier $DBInstanceArn
     #$DBClusterSnapshots = Get-RDSDBClusterSnapshot -ProfileName $Profile.ProfileName -DBClusterIdentifier $DBInstanceArn
 
     $Sum = [PSCustomObject]@{
@@ -36,14 +37,108 @@ foreach ($Instance in $RDSInstances) {
         BackupRetention         = $Instance.BackupRetentionPeriod
         #StorageThroughput       = $Instance.StorageThroughput
         #Tags                    = $Tags
-        Snapshots               = ($Snapshots | Measure-Object).Count
+        Snapshots               = ($Shots | Measure-Object).Count
         #DBClusterSnapshots      = ($DBClusterSnapshots | Measure-Object).Count
         
     }
     $Inst += $Sum
+    $Snapshots += $Shots
     
 }
 $Inst | Format-Table -AutoSize
+
+$Snap = @()
+$Snapshots | ForEach-Object {
+
+    $Sum = [PSCustomObject]@{
+
+        DBInstanceIdentifier    = $_.DBInstanceIdentifier
+        DBSnapshotIdentifier    = $_.DBSnapshotIdentifier
+        SnapshotCreateTime      = $_.SnapshotCreateTime
+        Engine                  = $_.Engine
+        SnapshotType            = $_.SnapshotType
+        Status                  = $_.Status
+        
+    }
+    $Snap += $Sum
+}
+$Snap | Format-Table -AutoSize
+
+
+
+
+
+
+
+
+
+
+$SnapshotColumns = @(
+    #'AvailabilityZone',
+    'DBInstanceIdentifier',
+    'DBSnapshotIdentifier',
+    'InstanceCreateTime',
+    'SnapshotCreateTime',
+    'Engine',
+    'SnapshotType',
+    'Status'
+)
+$Snapshots | Select-Object -Property $SnapshotColumns | Sort-Object SnapshotCreateTime -Descending| Format-Table -AutoSize
+
+
+Get-Command -Module AWS.Tools.RDS
+
+$SnapshotColumns = @(
+    #'AvailabilityZone',
+    'DBInstanceIdentifier',
+    'DBSnapshotIdentifier',
+    'InstanceCreateTime',
+    'SnapshotCreateTime',
+    'Engine',
+    'SnapshotType',
+    'Status'
+)
+$Snapshots | Select-Object -Property $SnapshotColumns | Sort-Object SnapshotCreateTime -Descending| Format-Table -AutoSize
+
+
+
+
+
+
+
+$Snap = @()
+$Snapshots | ForEach-Object {
+
+    $DBInstanceIdentifier    = $_.DBInstanceIdentifier
+    $DBSnapshotIdentifier    = $_.DBSnapshotIdentifier
+    $SnapshotCreateTime      = $_.SnapshotCreateTime
+    $Engine                  = $_.Engine
+    $SnapshotType            = $_.SnapshotType
+    $Status                  = $_.Status
+
+    $Sum = [PSCustomObject]@{
+
+        DBInstanceIdentifier    = $DBInstanceIdentifier
+        DBSnapshotIdentifier    = $DBSnapshotIdentifier
+        SnapshotCreateTime      = $SnapshotCreateTime
+        Engine                  = $Engine
+        SnapshotType            = $SnapshotType
+        Status                  = $Status
+        
+    }
+    $Snap += $Sum
+}
+$Snap | Format-Table -AutoSize
+
+Get-RDSDBSnapshot -ProfileName DevOps-Owner-Services-PROD -DBInstanceIdentifier 'notificationdbprod'
+
+
+$RDSInstances = Get-RDSDBInstance -ProfileName $Profiles.ProfileName -Region eu-west-2
+
+$RDSInstances.DBInstanceArn[0]
+$Shots = Get-RDSDBSnapshot -ProfileName $Profiles.ProfileName -DBInstanceIdentifier $RDSInstances.DBInstanceArn[0]
+
+
 
 # $BackupSummary  = @()
 

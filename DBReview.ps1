@@ -116,14 +116,14 @@ $Summary    | Format-Table -AutoSize
 #endregion
 
 # -------------------------------------------------------------------------------------------------------------------------------------------------- #
-#                                                       TEMAS NOTIFICATION - TOP LEVEL DETAILS                                                       #
+#                                                       TEAMS NOTIFICATION - TOP LEVEL DETAILS                                                       #
 # -------------------------------------------------------------------------------------------------------------------------------------------------- #
-#region TEMAS NOTIFICATION - TOP LEVEL DETAILS
+#region TEAMS NOTIFICATION - TOP LEVEL DETAILS
 
 New-AdaptiveCard -Uri $URI -VerticalContentAlignment center -FullWidth {
     New-AdaptiveContainer {
 
-        New-AdaptiveTextBlock -Text "AWS Database Review" -Size ExtraLarge -Wrap -HorizontalAlignment Center -Color Good
+        New-AdaptiveTextBlock -Text "AWS Database Review" -Size ExtraLarge -Wrap -HorizontalAlignment Center -Color Accent
         New-AdaptiveTextBlock -Text "$((Get-Date).GetDateTimeFormats()[12])" -Subtle -HorizontalAlignment Center -Spacing None
         
     }
