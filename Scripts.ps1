@@ -3,59 +3,66 @@ Import-Module AWS.Tools.DynamoDBv2
 Import-Module AWS.Tools.RDS
 Import-Module AWS.Tools.Backup
 
-
-
 $RegexGroup             = 'AccountNumber'
 $RegexGroupAccountName  = 'AccountName'
 $RegexAccountNumber     = "(?<$RegexGroup>\d+):db.+$"
 $RegexAccountNumberDDb  = "(?<$RegexGroup>\d+):table.+$" 
 $RegexAccountName       = "(?<PreFix>DevOps-)(?<$RegexGroupAccountName>.+)"
-$Profile                = Get-AWSCredentials -ListProfileDetail | Where-Object { $_.ProfileName -match 'DevOps-Apex-PROD' }
+$Profile                = Get-AWSCredentials -ListProfileDetail | Where-Object { $_.ProfileName -match 'DevOps-Owner-Services-PROD' }
 $Regions                = "eu-central-1" , "eu-west-2" , "eu-west-1", "us-east-1"
 
 $ddbBackupList          = Get-DDBBackupList -ProfileName $Profile.ProfileName 
 $ddbTableList           = Get-DDBTableList -ProfileName $Profile.ProfileName
 
-$ddbTables  = @()
-foreach ($ddbTable in $ddbTableList) {
-    
-    $Table = Get-DDBTable -TableName $ddbTable -ProfileName $Profile.ProfileName
 
-    if ($ddbBackupList) {
-        
-        $BackupAvailable = $ddbBackupList.TableName.Contains("$($Table.TableName)")
-    }
-    else {
+$RDSInstances = Get-RDSDBInstance -ProfileName $Profile.ProfileName -Region eu-west-2
 
-        $BackupAvailable = $false
-    }
+$Inst = @()
+foreach ($Instance in $RDSInstances) {
     
+    $DBInstanceArn      = $Instance.DBInstanceArn
+    # $Tags               = Get-RDSTagForResource -ResourceName $DBInstanceArn -ProfileName $Profile.ProfileName
+    $Snapshots          = Get-RDSDBSnapshot -ProfileName $Profile.ProfileName -DBInstanceIdentifier $DBInstanceArn
+    #$DBClusterSnapshots = Get-RDSDBClusterSnapshot -ProfileName $Profile.ProfileName -DBClusterIdentifier $DBInstanceArn
 
     $Sum = [PSCustomObject]@{
 
-        TableName           = $Table.TableName
-        TableBackup         = $BackupAvailable
-        CreationDateTime    = $Table.CreationDateTime
-        ItemCount           = $Table.ItemCount
-        TableSizeBytes      = $Table.TableSizeBytes
-        TableSizeMB         = "$([math]::round($($Table.TableSizeBytes /1MB), 0)) MB"
-        TableStatus         = $Table.TableStatus
-        
-        # TableId             = $Table.TableId
-        
-        # KeySchema           = $Table.KeySchema
-        # GlobalSecondaryIndexes = $Table.GlobalSecondaryIndexes
+        #DBName                  = $Instance.DBName
+        DBInstanceIdentifier    = $Instance.DBInstanceIdentifier
+        Engine                  = $Instance.Engine
+        EngineVersion           = $Instance.EngineVersion
+        InstanceCreateTime      = $Instance.InstanceCreateTime
+        #DBInstanceClass         = $Instance.DBInstanceClass
+        BackupRetention         = $Instance.BackupRetentionPeriod
+        #StorageThroughput       = $Instance.StorageThroughput
+        #Tags                    = $Tags
+        Snapshots               = ($Snapshots | Measure-Object).Count
+        #DBClusterSnapshots      = ($DBClusterSnapshots | Measure-Object).Count
         
     }
-    $ddbTables += $Sum
+    $Inst += $Sum
+    
 }
-$ddbTables | Format-Table -AutoSize
+$Inst | Format-Table -AutoSize
 
+# $BackupSummary  = @()
 
-Get-DDBBackupList -ProfileName DBA-Sandpit
-Get-Command -Module AWS.Tools.DynamoDBv2
+# foreach ($Backup in $BackupsList) {
+    
+#     $Backup = [PSCustomObject]@{
 
-New-DDBBackup -TableName 'DBAParameters' -ProfileName DBA-Sandpit -BackupName 'DBAParameters-Backup2'
+#     TableName           = $BackupsList.TableName
+#     BackupName          = $BackupsList.BackupName
+#     CreationDateTime    = $BackupsList.BackupCreationDateTime
+#     BackupSizeBytes     = $BackupsList.BackupSizeBytes
+#     BackupType          = $BackupsList.BackupType
+#     BackupStatus        = $BackupsList.BackupStatus
+    
+#     }
+#     $BackupSummary += $Backup
+# }
+
+# $BackupSummary #| Format-Table -AutoSize
 
 # $Summary    = @()
 # foreach ($Profile in $Profiles) {
