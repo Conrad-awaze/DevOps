@@ -10,87 +10,91 @@ $Summary    | Format-Table -AutoSize
 $ddbTables = Get-DoDDBTableInformation $Profiles $Regions 
 $ddbTables | Format-Table -AutoSize
 
-Get-DoRDSDBSummary $Profiles $Regions | Format-Table -AutoSize
+function Get-DoRDSDBSummary {
+    [CmdletBinding()]
+    param (
 
-# function Get-DoRDSDBSummary {
-#     [CmdletBinding()]
-#     param (
-
-#         $Profiles,
-#         $Regions
+        $Profiles,
+        $Regions
         
-#     )
+    )
     
-#     begin {
+    begin {
 
-#         $Inst       = @()
-#         # $Snap       = @()
-#         # $Snapshots  = @()
+        $Inst       = @()
+        $Snap       = @()
+        $Snapshots  = @()
         
-#     }
+    }
     
-#     process {
+    process {
 
-#         $Regions | ForEach-Object {
+        $Regions | ForEach-Object {
     
-#             $RDSInstances = Get-RDSDBInstance -ProfileName $Profiles.ProfileName -Region $_
+            $RDSInstances = Get-RDSDBInstance -ProfileName $Profiles.ProfileName -Region $_
         
-#             if ($RDSInstances) {
+            if ($RDSInstances) {
                 
-#                 foreach ($Instance in $RDSInstances) {
+                foreach ($Instance in $RDSInstances) {
                 
-#                     $DBInstanceArn      = $Instance.DBInstanceArn
-#                     # $Tags               = Get-RDSTagForResource -ResourceName $DBInstanceArn -ProfileName $Profile.ProfileName
-#                     $Shots              = Get-RDSDBSnapshot -ProfileName $Profiles.ProfileName -DBInstanceIdentifier $DBInstanceArn
-#                     #$DBClusterSnapshots = Get-RDSDBClusterSnapshot -ProfileName $Profile.ProfileName -DBClusterIdentifier $DBInstanceArn
+                    $DBInstanceArn      = $Instance.DBInstanceArn
+                    # $Tags               = Get-RDSTagForResource -ResourceName $DBInstanceArn -ProfileName $Profile.ProfileName
+                    $Shots              = Get-RDSDBSnapshot -ProfileName $Profiles.ProfileName -DBInstanceIdentifier $DBInstanceArn
+                    #$DBClusterSnapshots = Get-RDSDBClusterSnapshot -ProfileName $Profile.ProfileName -DBClusterIdentifier $DBInstanceArn
             
-#                     $Sum = [PSCustomObject]@{
+                    $Sum = [PSCustomObject]@{
             
-#                         Region                 = $_
-#                         DBInstanceIdentifier    = $Instance.DBInstanceIdentifier
-#                         Engine                  = $Instance.Engine
-#                         Version                 = $Instance.EngineVersion
-#                         InstanceCreateTime      = $Instance.InstanceCreateTime
-#                         #DBInstanceClass         = $Instance.DBInstanceClass
-#                         BackupRetention         = $Instance.BackupRetentionPeriod
-#                         #StorageThroughput       = $Instance.StorageThroughput
-#                         #Tags                    = $Tags
-#                         Snapshots               = ($Shots | Measure-Object).Count
-#                         #DBClusterSnapshots      = ($DBClusterSnapshots | Measure-Object).Count
+                        Region                 = $_
+                        DBInstanceIdentifier    = $Instance.DBInstanceIdentifier
+                        Engine                  = $Instance.Engine
+                        Version                 = $Instance.EngineVersion
+                        InstanceCreateTime      = $Instance.InstanceCreateTime
+                        #DBInstanceClass         = $Instance.DBInstanceClass
+                        
+                        #StorageThroughput       = $Instance.StorageThroughput
+                        #Tags                    = $Tags
+                        Snapshots               = ($Shots | Measure-Object).Count
+                        Retention               = $Instance.BackupRetentionPeriod
+                        #DBClusterSnapshots      = ($DBClusterSnapshots | Measure-Object).Count
             
-#                     }
-#                     $Inst += $Sum
-#                     #$Snapshots += $Shots
+                    }
+                    $Inst += $Sum
+                    $Snapshots += $Shots
             
-#                 }
+                }
             
-#                 # $Snapshots | ForEach-Object {
+                $Snapshots | ForEach-Object {
             
-#                 #     $Sum = [PSCustomObject]@{
+                    $Sum = [PSCustomObject]@{
             
-#                 #         DBInstanceIdentifier    = $_.DBInstanceIdentifier
-#                 #         DBSnapshotIdentifier    = $_.DBSnapshotIdentifier
-#                 #         SnapshotCreateTime      = $_.SnapshotCreateTime
-#                 #         Engine                  = $_.Engine
-#                 #         SnapshotType            = $_.SnapshotType
-#                 #         Status                  = $_.Status
+                        DBInstanceIdentifier    = $_.DBInstanceIdentifier
+                        DBSnapshotIdentifier    = $_.DBSnapshotIdentifier
+                        SnapshotCreateTime      = $_.SnapshotCreateTime
+                        Engine                  = $_.Engine
+                        SnapshotType            = $_.SnapshotType
+                        Status                  = $_.Status
             
-#                 #     }
-#                 #     $Snap += $Sum
-#                 # }
-#             }
+                    }
+                    $Snap += $Sum
+                }
+            }
+
+        }
          
-#         }
-        
-#     }
+    }
     
-#     end {
+    end {
 
-#         $Inst
-        
-#     }
-# }
+        $Inst
+           
+    }
+}
 
+$SummaryRDS = Get-DoRDSDBSummary $Profiles $Regions
+$SummaryRDS | Format-Table -AutoSize
+
+$Snapshots = Get-DoRDSSnapshotSummary $Profiles $Regions
+$Snapshots | Format-Table -AutoSize
 
 
 
