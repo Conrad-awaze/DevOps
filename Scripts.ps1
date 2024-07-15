@@ -1,151 +1,31 @@
-Remove-Module DevOpsToolkit
 Import-Module AWS.Tools.Common, AWS.Tools.DynamoDBv2, AWS.Tools.RDS
 Import-Module '/Users/conrad.gauntlett/WorkArea/Repos/DBA_MISC/PowerShell/Modules/DevOpsToolkit'
 
-$Profiles   = Get-AWSCredentials -ListProfileDetail | Where-Object { $_.ProfileName -match 'DevOps-Owner-Services-PROD' }
-$Regions    = "eu-central-1" , "eu-west-2" , "eu-west-1", "us-east-1"
-$Summary    = Get-DoAWSDBInformation $Profiles $Regions
-$Summary    | Format-Table -AutoSize
+$Account            = 'DevOps-AVR-Guest-Payments-PROD'
+$RDSSummaryColumns  = 'AvailabilityZone', 'DBSnapshotIdentifier', 'SnapshotCreateTime', 'SnapshotType', 'Status'
+$Profiles           = Get-AWSCredentials -ListProfileDetail | Where-Object { $_.ProfileName -match $Account }
+$Regions            = "eu-central-1" , "eu-west-2" , "eu-west-1", "us-east-1"
+$Summary            = Get-DoAWSDBInformation $Profiles $Regions
+
 
 $ddbTables = Get-DoDDBTableInformation $Profiles $Regions 
 $ddbTables | Format-Table -AutoSize
 
-function Get-DoRDSDBSummary {
-    [CmdletBinding()]
-    param (
 
-        $Profiles,
-        $Regions
-        
-    )
-    
-    begin {
+$BackupsList    = Get-DDBBackupList -ProfileName $Profiles.ProfileName -Region eu-west-2
+$Columns        = 'TableName', 'BackupName', 'BackupCreationDateTime',    'BackupType' #  'BackupStatus','BackupSizeBytes',
+$BackupsList | Select-Object -Property $Columns | Format-Table -AutoSize
 
-        $Inst       = @()
-        $Snap       = @()
-        $Snapshots  = @()
-        
-    }
-    
-    process {
+$Table = 'terraform-locks'
+$Backup = $BackupsList | Where-Object { $_.TableName -eq $Table } | Sort-Object -Property BackupCreationDateTime -Descending | Select-Object -First 1
+$Bk = Get-DDBBackup -BackupArn $Backup.BackupArn -ProfileName $Profiles.ProfileName
+$Bk.BackupDetails.BackupArn
 
-        $Regions | ForEach-Object {
-    
-            $RDSInstances = Get-RDSDBInstance -ProfileName $Profiles.ProfileName -Region $_
-        
-            if ($RDSInstances) {
-                
-                foreach ($Instance in $RDSInstances) {
-                
-                    $DBInstanceArn      = $Instance.DBInstanceArn
-                    # $Tags               = Get-RDSTagForResource -ResourceName $DBInstanceArn -ProfileName $Profile.ProfileName
-                    $Shots              = Get-RDSDBSnapshot -ProfileName $Profiles.ProfileName -DBInstanceIdentifier $DBInstanceArn
-                    #$DBClusterSnapshots = Get-RDSDBClusterSnapshot -ProfileName $Profile.ProfileName -DBClusterIdentifier $DBInstanceArn
-            
-                    $Sum = [PSCustomObject]@{
-            
-                        Region                 = $_
-                        DBInstanceIdentifier    = $Instance.DBInstanceIdentifier
-                        Engine                  = $Instance.Engine
-                        Version                 = $Instance.EngineVersion
-                        InstanceCreateTime      = $Instance.InstanceCreateTime
-                        #DBInstanceClass         = $Instance.DBInstanceClass
-                        
-                        #StorageThroughput       = $Instance.StorageThroughput
-                        #Tags                    = $Tags
-                        Snapshots               = ($Shots | Measure-Object).Count
-                        Retention               = $Instance.BackupRetentionPeriod
-                        #DBClusterSnapshots      = ($DBClusterSnapshots | Measure-Object).Count
-            
-                    }
-                    $Inst += $Sum
-                    $Snapshots += $Shots
-            
-                }
-            
-                $Snapshots | ForEach-Object {
-            
-                    $Sum = [PSCustomObject]@{
-            
-                        DBInstanceIdentifier    = $_.DBInstanceIdentifier
-                        DBSnapshotIdentifier    = $_.DBSnapshotIdentifier
-                        SnapshotCreateTime      = $_.SnapshotCreateTime
-                        Engine                  = $_.Engine
-                        SnapshotType            = $_.SnapshotType
-                        Status                  = $_.Status
-            
-                    }
-                    $Snap += $Sum
-                }
-            }
+$Table = 'terraform-locks'
+$Backup = New-DDBBackup -TableName $Table -ProfileName $Profiles.ProfileName -BackupName "$Table-$(get-date -format "yyyy-MM-dd-HH-mm-ss")" -Region eu-west-2
+$Backup
 
-        }
-         
-    }
-    
-    end {
+Get-Command -Module AWS.Tools.DynamoDBv2
 
-        $Inst
-           
-    }
-}
-
-$SummaryRDS = Get-DoRDSDBSummary $Profiles $Regions
-$SummaryRDS | Format-Table -AutoSize
-
-$Snapshots = Get-DoRDSSnapshotSummary $Profiles $Regions
-$Snapshots | Format-Table -AutoSize
-
-
-
-# $RDSInstances = Get-RDSDBInstance -ProfileName $Profiles.ProfileName -Region eu-west-2
-
-# $Inst = @()
-# $Snap = @()
-# $Snapshots = @()
-# foreach ($Instance in $RDSInstances) {
-    
-#     $DBInstanceArn      = $Instance.DBInstanceArn
-#     # $Tags               = Get-RDSTagForResource -ResourceName $DBInstanceArn -ProfileName $Profile.ProfileName
-#     $Shots          = Get-RDSDBSnapshot -ProfileName $Profiles.ProfileName -DBInstanceIdentifier $DBInstanceArn
-#     #$DBClusterSnapshots = Get-RDSDBClusterSnapshot -ProfileName $Profile.ProfileName -DBClusterIdentifier $DBInstanceArn
-
-#     $Sum = [PSCustomObject]@{
-
-#         #DBName                  = $Instance.DBName
-#         DBInstanceIdentifier    = $Instance.DBInstanceIdentifier
-#         Engine                  = $Instance.Engine
-#         EngineVersion           = $Instance.EngineVersion
-#         InstanceCreateTime      = $Instance.InstanceCreateTime
-#         #DBInstanceClass         = $Instance.DBInstanceClass
-#         BackupRetention         = $Instance.BackupRetentionPeriod
-#         #StorageThroughput       = $Instance.StorageThroughput
-#         #Tags                    = $Tags
-#         Snapshots               = ($Shots | Measure-Object).Count
-#         #DBClusterSnapshots      = ($DBClusterSnapshots | Measure-Object).Count
-        
-#     }
-#     $Inst += $Sum
-#     $Snapshots += $Shots
-    
-# }
-
-# $Snapshots | ForEach-Object {
-
-#     $Sum = [PSCustomObject]@{
-
-#         DBInstanceIdentifier    = $_.DBInstanceIdentifier
-#         DBSnapshotIdentifier    = $_.DBSnapshotIdentifier
-#         SnapshotCreateTime      = $_.SnapshotCreateTime
-#         Engine                  = $_.Engine
-#         SnapshotType            = $_.SnapshotType
-#         Status                  = $_.Status
-        
-#     }
-#     $Snap += $Sum
-# }
-# $Inst | Format-Table -AutoSize
-
-
-
-
+$BackupDelete = Remove-DDBBackup -BackupArn $Backup.BackupArn -ProfileName $Profiles.ProfileName -Region eu-west-2 -Confirm:$false
+$BackupDelete.BackupDetails
