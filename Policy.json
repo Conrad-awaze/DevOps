@@ -1,18 +1,19 @@
 {
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Sid": "VisualEditor0",
-            "Effect": "Allow",
-            "Action": [
-                "kms:Decrypt",
-                "kms:GenerateDataKey",
-                "dynamodb:CreateBackup"
-            ],
-            "Resource": [
-                "arn:aws:dynamodb:*:*:table/*",
-                "arn:aws:kms:*:*:key/*"
-            ]
-        }
-    ]
+	"Version": "2012-10-17",
+	"Statement": [
+		{
+			"Sid": "VisualEditor0",
+			"Effect": "Allow",
+			"Action": [
+				"kms:Decrypt",
+				"kms:GenerateDataKey",
+				"dynamodb:CreateBackup",
+				"dynamodb:DeleteBackup"
+			],
+			"Resource": [
+				"arn:aws:dynamodb:*:*:table/*",
+				"arn:aws:kms:*:*:key/*"
+			]
+		}
+	]
 }
