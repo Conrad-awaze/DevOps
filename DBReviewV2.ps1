@@ -1,3 +1,5 @@
+using namespace System.Management.Automation.Host
+
 Remove-Module DevOpsToolkit
 Import-Module AWS.Tools.Common, AWS.Tools.DynamoDBv2, AWS.Tools.RDS
 Import-Module '/Users/conrad.gauntlett/WorkArea/Repos/DBA_MISC/PowerShell/Modules/DevOpsToolkit'
@@ -7,19 +9,14 @@ Import-Module '/Users/conrad.gauntlett/WorkArea/Repos/DBA_MISC/PowerShell/Module
 # -------------------------------------------------------------------------------------------------------------------------------------------------- #
 #region PARAMATERS
 
-$ddbParametersTable     = 'DBA-Parameters'
-$ProfileNameCommon      = 'DBA-Common'
-$keyTeams               = @{ PK = 'Teams'; SK = 'ChannelGUIDs'} | ConvertTo-DDBItem
-$Teams                  = Get-DDBItem -TableName $ddbParametersTable -Key $keyTeams -ProfileName $ProfileNameCommon | ConvertFrom-DDBItem
-$URI                    = "https://awazecom.webhook.office.com/webhookb2/$($Teams.DBAAWSGUID1)/IncomingWebhook/$($Teams.DBAAWSGUID2)"
+# $ddbParametersTable     = 'DBA-Parameters'
+# $ProfileNameCommon      = 'DBA-Common'
+# $keyTeams               = @{ PK = 'Teams'; SK = 'ChannelGUIDs'} | ConvertTo-DDBItem
+# $Teams                  = Get-DDBItem -TableName $ddbParametersTable -Key $keyTeams -ProfileName $ProfileNameCommon | ConvertFrom-DDBItem
+# $URI                    = "https://awazecom.webhook.office.com/webhookb2/$($Teams.DBAAWSGUID1)/IncomingWebhook/$($Teams.DBAAWSGUID2)"
 $Regions                = "eu-central-1" , "eu-west-2" , "eu-west-1", "us-east-1"
-# $RegexGroup             = 'AccountNumber'
-# $RegexGroupAccountName  = 'AccountName'
-# $RegexAccountNumber     = "(?<$RegexGroup>\d+):db.+$"
-# $RegexAccountNumberDDb  = "(?<$RegexGroup>\d+):table.+$" 
-# $RegexAccountName       = "(?<PreFix>DevOps-)(?<$RegexGroupAccountName>.+)"
-$Profiles               = Get-AWSCredentials -ListProfileDetail | Where-Object { $_.ProfileName -like 'DevOps*' }
 $Columns                = 'Account', 'AccountID','RDS Instances','DynamoDB Tables'
+$Profiles               = Get-AWSCredentials -ListProfileDetail | Where-Object { $_.ProfileName -like 'DevOps*' }
 
 #endregion
 
@@ -28,6 +25,44 @@ $Columns                = 'Account', 'AccountID','RDS Instances','DynamoDB Table
 # -------------------------------------------------------------------------------------------------------------------------------------------------- #
 #region FUNCTIONS
 
+function New-Menu {
+    [CmdletBinding()]
+    param(
+        # [Parameter(Mandatory)]
+        # [ValidateNotNullOrEmpty()]
+        # [string]$Title,
+
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string]$Question
+    )
+    
+    $ddb = [ChoiceDescription]::new('&DynamoDB', 'View DynamoDB Table Details')
+    $rds = [ChoiceDescription]::new('&RDS', 'View RDS Database Details')
+    
+
+    $options = [ChoiceDescription[]]($ddb, $rds)
+
+    $result = $host.ui.PromptForChoice("", $Question, $options, 0)
+    # $result = $host.ui.PromptForChoice($Title, $Question, $options, 0)
+
+    switch ($result) {
+        0 { 
+             
+            $Option = 'DynamoDB'
+
+        
+        }
+        1 { 
+            
+            $Option = 'RDS'
+        }
+        
+    }
+
+    $Option
+
+}
 #endregion
 
 # -------------------------------------------------------------------------------------------------------------------------------------------------- #
@@ -35,20 +70,109 @@ $Columns                = 'Account', 'AccountID','RDS Instances','DynamoDB Table
 # -------------------------------------------------------------------------------------------------------------------------------------------------- #
 #region COLLECT DATABASE DETAILS
 
-$Summary    = Get-DoAWSDBInformation $Profiles $Regions
+$AVSAccounts =  Get-DoAWSAccountList
+
+Write-Host ""
+$Selection = Read-Host "Select Account Number (0 for All Accounts) " 
+
+switch ($Selection) {
+    
+    0 { 
+
+        $AccountProfiles = $Profiles 
+    
+    }
+    ({$PSItem -in 1..14}) {
+
+        $AccountProfiles = $Profiles | Where-Object { $_.ProfileName -match "$(($AVSAccounts | Where-Object { $_.Number -eq $Selection }).Account)" }
+    }
+    'q' { 
+
+        Break 
+    }
+}
+
+$Summary    = Get-DoAWSDBInformation $AccountProfiles $Regions
 $Summary    | Format-Table -AutoSize
 
 #endregion
 
-# -------------------------------------------------------------------------------------------------------------------------------------------------- #
-#                                                              COLLECT DYNAMODB DETAILS                                                              #
-# -------------------------------------------------------------------------------------------------------------------------------------------------- #
-#region COLLECT DYNAMODB DETAILS
+# Write-Host 'Press any key to continue...';
+Write-Host '';
+# $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown');
 
-$ddbTables = Get-DoDDBTableInformation $Profiles $Regions 
-$ddbTables | Select-Object Account, Region, TableName, TableBackup, CreationDateTime, ItemCount,TableSizeBytes, TableSizeMB, TableStatus, AccountID | Format-Table -AutoSize
+if ($Selection -eq 0) {
 
-#endregion
+    Write-Host 'Press any key to continue...';
+    $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown');
+}else {
+    
+    $Option = New-Menu -Question 'View DynamoDB or RDS Details?'
+
+    switch ($Option) {
+        DynamoDB { 
+
+            if ($Selection -eq 0) {
+        
+                $AVSAccounts =  Get-DoAWSAccountList
+            
+                Write-Host ""
+                $Selection = Read-Host "Select Account Number (0 for All Accounts) " 
+            
+                switch ($Selection) {
+                
+                    0 { 
+                
+                        $AccountProfiles = $Profiles 
+                    
+                    }
+                    ({$PSItem -in 1..14}) {
+                
+                        $AccountProfiles = $Profiles | Where-Object { $_.ProfileName -match "$(($AVSAccounts | Where-Object { $_.Number -eq $Selection }).Account)" }
+                    }
+                    'q' { 
+                
+                        Break 
+                    }
+                }
+                
+                # -------------------------------------------------------------------------------------------------------------------------------------------------- #
+                #                                                              COLLECT DYNAMODB DETAILS                                                              #
+                # -------------------------------------------------------------------------------------------------------------------------------------------------- #
+                #region COLLECT DYNAMODB DETAILS
+            
+                $ddbTables = Get-DoDDBTableInformation $AccountProfiles $Regions 
+                $ddbTables | Select-Object Account, Region, TableName, TableBackup, CreationDateTime, ItemCount,TableSizeBytes, TableSizeMB, TableStatus, AccountID | Format-Table -AutoSize
+            
+                #endregion
+            
+            }else {
+                
+                # -------------------------------------------------------------------------------------------------------------------------------------------------- #
+                #                                                              COLLECT DYNAMODB DETAILS                                                              #
+                # -------------------------------------------------------------------------------------------------------------------------------------------------- #
+                #region COLLECT DYNAMODB DETAILS
+
+                Write-Host "Collecting DynamoDB Details for the [$($AccountProfiles.ProfileName)] Account...!!"
+            
+                $ddbTables = Get-DoDDBTableInformation $AccountProfiles $Regions $Selection
+                $ddbTables | Select-Object 'No.',Account, Region, TableName, TableBackup, CreationDateTime, ItemCount,TableSizeBytes, TableSizeMB, TableStatus, AccountID | Format-Table -AutoSize
+            
+                #endregion
+            }
+
+        }
+        RDS {
+            Write-Host 'RDS'
+        }
+    }
+}
+
+
+
+
+
+
 
 
 
