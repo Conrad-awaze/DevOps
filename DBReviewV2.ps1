@@ -149,6 +149,8 @@ if ($Selection -eq 0) {
 
     do {
 
+        # -------------------------------------------- Clear the screen if it's the second time through the loop ------------------------------------------- #
+
         $Count++
         if ($Count -gt 1) {
             Clear-Host
@@ -190,7 +192,10 @@ if ($Selection -eq 0) {
     
 
 }else {
-    
+    if ($Count -gt 0) {
+        Write-Host "Looping through the accounts..."
+    }
+
     $Option = New-Menu -Question 'View DynamoDB or RDS Details?'
 
     switch ($Option) {
@@ -244,6 +249,59 @@ if ($Selection -eq 0) {
                 $ddbTables | Select-Object 'No.',Account, Region, TableName, TableBackup, CreationDateTime, ItemCount,TableSizeBytes, TableSizeMB, TableStatus, AccountID | Format-Table -AutoSize
             
                 #endregion
+
+                $OptionAnotherAccount = New-AccountSelection -Question 'View Another Account?'
+
+                do {
+
+                    # -------------------------------------------- Clear the screen if it's the second time through the loop ------------------------------------------- #
+            
+                    $Count++
+                    if ($Count -gt 0) {
+                        
+                        $AVSAccounts =  Get-DoAWSAccountList
+                        $AccountProfiles = $Profiles
+                    }
+            
+                    Write-Host ""
+                    $Selection = Read-Host "Select Account Number (1 to $(($AVSAccounts| Measure-Object).Count)) " 
+            
+                    switch ($Selection) {
+                    
+                        ({$PSItem -in 1..$(($AVSAccounts | Measure-Object).Count)}) {
+                    
+                            $AccountProfiles = $Profiles | Where-Object { $_.ProfileName -match "$(($AVSAccounts | Where-Object { $_.Number -eq $Selection }).Account)" }
+                        }
+                        ($PSItem -gt $(($AVSAccounts | Measure-Object).Count)) { 
+                    
+                            write-host "Invalid Selection"
+                        }
+                    }
+
+                    $Summary    = Get-DoAWSDBInformation $AccountProfiles $Regions
+                    Clear-Host
+                    $Summary    | Select-Object 'No.',Account, AccountID, Region, RDSInstances, DynamoDBTables | Format-Table -AutoSize
+
+                    $Option = New-Menu -Question 'View DynamoDB or RDS Details?'
+                    
+                    # -------------------------------------------------------------------------------------------------------------------------------------------------- #
+                    #                                                              COLLECT DYNAMODB DETAILS                                                              #
+                    # -------------------------------------------------------------------------------------------------------------------------------------------------- #
+                    #region COLLECT DYNAMODB DETAILS
+                
+                    $ddbTables = Get-DoDDBTableInformation $AccountProfiles $Regions 
+                    $ddbTables | Select-Object 'No.',Account, Region, TableName, TableBackup, CreationDateTime, ItemCount,TableSizeBytes, TableSizeMB, TableStatus, AccountID | Format-Table -AutoSize
+                
+                    #endregion
+                
+                    # $OptionAnotherAccount = New-AccountSelection -Question 'View Another Account?'
+                    
+                } while (
+            
+                    $OptionAnotherAccount -eq $true
+                    
+                )
+
             }
 
         }
@@ -251,6 +309,10 @@ if ($Selection -eq 0) {
             Write-Host 'RDS'
         }
     }
+        
+   
+    
+    
 }
 
 
