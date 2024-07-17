@@ -63,6 +63,47 @@ function New-Menu {
     $Option
 
 }
+
+function New-AccountSelection {
+    [CmdletBinding()]
+    param(
+        # [Parameter(Mandatory)]
+        # [ValidateNotNullOrEmpty()]
+        # [string]$Title,
+
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string]$Question
+    )
+    
+    $yes = [ChoiceDescription]::new('&Yes', 'View Another Account')
+    $no = [ChoiceDescription]::new('&No', 'Quit and Exit')
+    
+
+    $options = [ChoiceDescription[]]($yes, $no)
+
+    $result = $host.ui.PromptForChoice("", $Question, $options, 0)
+    # $result = $host.ui.PromptForChoice($Title, $Question, $options, 0)
+
+    switch ($result) {
+        0 { 
+             
+            $Option = $true
+
+        
+        }
+        1 { 
+            
+            $Option = $false
+        }
+        
+    }
+
+    $Option
+
+}
+
+
 #endregion
 
 # -------------------------------------------------------------------------------------------------------------------------------------------------- #
@@ -93,7 +134,8 @@ switch ($Selection) {
 }
 
 $Summary    = Get-DoAWSDBInformation $AccountProfiles $Regions
-$Summary    | Format-Table -AutoSize
+Clear-Host
+$Summary    | Select-Object 'No.',Account, AccountID, Region, RDSInstances, DynamoDBTables | Format-Table -AutoSize
 
 #endregion
 
@@ -101,15 +143,58 @@ $Summary    | Format-Table -AutoSize
 Write-Host '';
 # $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown');
 
+# ------------------------------------------------- Check if a single or all accounts are requested ------------------------------------------------ #
+$Count = 0
 if ($Selection -eq 0) {
 
-    Write-Host 'Press any key to continue...';
-    $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown');
+    do {
+
+        $Count++
+        if ($Count -gt 1) {
+            Clear-Host
+            $Summary    | Select-Object 'No.',Account, AccountID, Region, RDSInstances, DynamoDBTables | Format-Table -AutoSize
+        }
+
+        Write-Host ""
+        $Selection = Read-Host "Select Account Number (1 to $(($Summary | Measure-Object).Count)) " 
+
+        switch ($Selection) {
+        
+            ({$PSItem -in 1..$(($Summary | Measure-Object).Count)}) {
+        
+                $AccountProfiles = $Profiles | Where-Object { $_.ProfileName -match "$(($Summary | Where-Object { $_.'No.' -eq $Selection }).Account)" }
+            }
+            ($PSItem -gt $(($Summary | Measure-Object).Count)) { 
+        
+                write-host "Invalid Selection"
+            }
+        }
+        
+        # -------------------------------------------------------------------------------------------------------------------------------------------------- #
+        #                                                              COLLECT DYNAMODB DETAILS                                                              #
+        # -------------------------------------------------------------------------------------------------------------------------------------------------- #
+        #region COLLECT DYNAMODB DETAILS
+    
+        $ddbTables = Get-DoDDBTableInformation $AccountProfiles $Regions 
+        $ddbTables | Select-Object 'No.',Account, Region, TableName, TableBackup, CreationDateTime, ItemCount,TableSizeBytes, TableSizeMB, TableStatus, AccountID | Format-Table -AutoSize
+    
+        #endregion
+    
+        $OptionAnotherAccount = New-AccountSelection -Question 'View Another Account?'
+        
+    } while (
+
+        $OptionAnotherAccount -eq $true
+        
+    )
+    
+
 }else {
     
     $Option = New-Menu -Question 'View DynamoDB or RDS Details?'
 
     switch ($Option) {
+
         DynamoDB { 
 
             if ($Selection -eq 0) {
