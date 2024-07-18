@@ -1,8 +1,6 @@
 using namespace System.Management.Automation.Host
 
-Remove-Module DevOpsToolkit
 Import-Module AWS.Tools.Common, AWS.Tools.DynamoDBv2, AWS.Tools.RDS
-Import-Module '/Users/conrad.gauntlett/WorkArea/Repos/DBA_MISC/PowerShell/Modules/DevOpsToolkit'
 
 # -------------------------------------------------------------------------------------------------------------------------------------------------- #
 #                                                                     PARAMATERS                                                                     #
@@ -12,9 +10,8 @@ Import-Module '/Users/conrad.gauntlett/WorkArea/Repos/DBA_MISC/PowerShell/Module
 $RegexGroupAccountName  = 'AccountName'
 $RegexAccountName       = "(?<PreFix>DevOps-)(?<$RegexGroupAccountName>.+)"
 $Regions                = "eu-central-1" , "eu-west-2" , "eu-west-1", "us-east-1"
-# $Columns                = 'Account', 'AccountID','RDS Instances','DynamoDB Tables'
 $ColumnsFULL            = 'No.','Account', 'AccountID', 'Region', 'RDSInstances', 'DynamoDBTables'
-$ColumnsDDBTables       = 'No.', 'Account', 'Region', 'TableName', 'TableBackup', 'CreationDateTime', 'ItemCount','TableSizeBytes', 'TableSizeMB', 'TableStatus', 'AccountID'
+$ColumnsDDBTables       = 'No.', 'Account', 'Region', 'TableName', 'TableBackups', 'CreationDateTime', 'ItemCount','TableSizeBytes', 'TableSizeMB', 'TableStatus', 'AccountID'
 $RDSSnapshotColumns     = 'AvailabilityZone', 'DBInstanceIdentifier', 'DBSnapshotIdentifier', 'SnapshotCreateTime', 'SnapshotType', 'Status'
 $ProfilesFULL           = Get-AWSCredentials -ListProfileDetail | Where-Object { $_.ProfileName -like 'DevOps*' }
 
@@ -23,557 +20,547 @@ $ProfilesFULL           = Get-AWSCredentials -ListProfileDetail | Where-Object {
 # -------------------------------------------------------------------------------------------------------------------------------------------------- #
 #                                                                      FUNCTIONS                                                                     #
 # -------------------------------------------------------------------------------------------------------------------------------------------------- #
-# #region FUNCTIONS
+#region FUNCTIONS
 
-# function Get-DoAWSAccountList {
-#     [CmdletBinding()]
-#     param (
+function Get-DoAWSAccountList {
+    [CmdletBinding()]
+    param (
         
-#     )
+    )
     
-#     begin {
+    begin {
 
-#         Clear-Host
-#         Write-Host "AWS Account List"
-#         Write-Host "--------------------------------"
+        Clear-Host
+        Write-Host "AWS Account List"
+        Write-Host "--------------------------------"
 
-#         $RegexGroupAccountName  = 'AccountName'
-#         $RegexAccountName       = "(?<PreFix>DevOps-)(?<$RegexGroupAccountName>.+)"
-#         $Profiles               = Get-AWSCredentials -ListProfileDetail | Where-Object { $_.ProfileName -like 'DevOps*' }
+        $RegexGroupAccountName  = 'AccountName'
+        $RegexAccountName       = "(?<PreFix>DevOps-)(?<$RegexGroupAccountName>.+)"
+        $Profiles               = Get-AWSCredentials -ListProfileDetail | Where-Object { $_.ProfileName -like 'DevOps*' }
         
-#     }
+    }
     
-#     process {
+    process {
 
-#         $AVSAccounts = @()
+        $AVSAccounts = @()
 
-#         for ($i = 0; $i -lt $Profiles.Count; $i++) {
+        for ($i = 0; $i -lt $Profiles.Count; $i++) {
             
-#             $Acc = [PSCustomObject]@{
+            $Acc = [PSCustomObject]@{
 
-#                 Number  = $($i + 1)
-#                 Account = (($Profiles[$i].ProfileName | select-string -Pattern $RegexAccountName).Matches.Groups | Where-Object { $_.Name -eq $RegexGroupAccountName }).Value
+                Number  = $($i + 1)
+                Account = (($Profiles[$i].ProfileName | select-string -Pattern $RegexAccountName).Matches.Groups | Where-Object { $_.Name -eq $RegexGroupAccountName }).Value
                 
-#             }
-#             $AVSAccounts += $Acc
-#             Write-Host "$($Acc.Number). $($Acc.Account)"
-#         }
+            }
+            $AVSAccounts += $Acc
+            Write-Host "$($Acc.Number). $($Acc.Account)"
+        }
         
-#     }
+    }
     
-#     end {
+    end {
 
-#         $AVSAccounts
+        $AVSAccounts
         
-#     }
-# }
-# function Get-DoAWSDBInformation {
-#     [CmdletBinding()]
-#     param (
+    }
+}
+function Get-DoAWSDBInformation {
+    [CmdletBinding()]
+    param (
 
-#         $Profiles,
-#         $Regions 
+        $Profiles,
+        $Regions 
         
-#     )
+    )
     
-#     begin {
+    begin {
 
-#         $Summary                = @()
-#         $RegexGroup             = 'AccountNumber'
-#         $RegexGroupAccountName  = 'AccountName'
-#         $RegexAccountNumber     = "(?<$RegexGroup>\d+):db.+$"
-#         $RegexAccountNumberDDb  = "(?<$RegexGroup>\d+):table.+$" 
-#         $RegexAccountName       = "(?<PreFix>DevOps-)(?<$RegexGroupAccountName>.+)"
+        $Summary                = @()
+        $RegexGroup             = 'AccountNumber'
+        $RegexGroupAccountName  = 'AccountName'
+        $RegexAccountNumber     = "(?<$RegexGroup>\d+):db.+$"
+        $RegexAccountNumberDDb  = "(?<$RegexGroup>\d+):table.+$" 
+        $RegexAccountName       = "(?<PreFix>DevOps-)(?<$RegexGroupAccountName>.+)"
         
-#     }
+    }
     
-#     process {
+    process {
 
-#         Clear-Host
-#         $Count     = 1
-#         $Summary    = @()
-#         foreach ($Profile in $Profiles) {
+        Clear-Host
+        $Count     = 1
+        $Summary    = @()
+        foreach ($Profile in $Profiles) {
 
-#             foreach ($Region in $Regions) {
+            foreach ($Region in $Regions) {
                 
-#                 $RDSInstances   = Get-RDSDBInstance -ProfileName $Profile.ProfileName -Region $Region
-#                 $ddbTables      = Get-DDBTableList -ProfileName $Profile.ProfileName -Region $Region
+                $RDSInstances   = Get-RDSDBInstance -ProfileName $Profile.ProfileName -Region $Region
+                $ddbTables      = Get-DDBTableList -ProfileName $Profile.ProfileName -Region $Region
 
-#                 switch ([string]::IsNullOrEmpty($RDSInstances)) {
-#                     $true { 
-#                         if ($ddbTables) {
+                switch ([string]::IsNullOrEmpty($RDSInstances)) {
+                    $true { 
+                        if ($ddbTables) {
                             
-#                             $Table = $ddbTables | Select-Object -First 1
-#                             $ddbTable = Get-DDBTable -TableName $Table -ProfileName $Profile.ProfileName -Region $Region
-#                             $AccountID  = (($ddbTable.TableArn | Select-String -Pattern $RegexAccountNumberDDb).Matches.Groups | Where-Object { $_.Name -eq $RegexGroup }).Value
-#                         }else {
+                            $Table = $ddbTables | Select-Object -First 1
+                            $ddbTable = Get-DDBTable -TableName $Table -ProfileName $Profile.ProfileName -Region $Region
+                            $AccountID  = (($ddbTable.TableArn | Select-String -Pattern $RegexAccountNumberDDb).Matches.Groups | Where-Object { $_.Name -eq $RegexGroup }).Value
+                        }else {
 
-#                             $AccountID = 0
-#                         }
-#                     }
-#                     $false {
+                            $AccountID = 0
+                        }
+                    }
+                    $false {
 
-#                         $RDSInstance   = $RDSInstances | Select-Object -First 1
-#                         $AccountID  = (($RDSInstance.DBInstanceArn | Select-String -Pattern $RegexAccountNumber).Matches.Groups | Where-Object { $_.Name -eq $RegexGroup }).Value
-#                     }
-#                     default {
+                        $RDSInstance   = $RDSInstances | Select-Object -First 1
+                        $AccountID  = (($RDSInstance.DBInstanceArn | Select-String -Pattern $RegexAccountNumber).Matches.Groups | Where-Object { $_.Name -eq $RegexGroup }).Value
+                    }
+                    default {
 
-#                         $AccountID = 0
-#                     }
-#                 }
+                        $AccountID = 0
+                    }
+                }
 
-#                 $Sum = [PSCustomObject]@{
+                $Sum = [PSCustomObject]@{
 
-#                     # 'No.'               = $Count++
-#                     Account             = (($Profile.ProfileName | select-string -Pattern $RegexAccountName).Matches.Groups | Where-Object { $_.Name -eq $RegexGroupAccountName }).Value
-#                     AccountID           = $AccountID
-#                     Region              = $Region
-#                     RDSInstances        = ($RDSInstances.DBInstanceIdentifier | Measure-Object).Count
-#                     DynamoDBTables      = $ddbTables.Count
+                    # 'No.'               = $Count++
+                    Account             = (($Profile.ProfileName | select-string -Pattern $RegexAccountName).Matches.Groups | Where-Object { $_.Name -eq $RegexGroupAccountName }).Value
+                    AccountID           = $AccountID
+                    Region              = $Region
+                    RDSInstances        = ($RDSInstances.DBInstanceIdentifier | Measure-Object).Count
+                    DynamoDBTables      = $ddbTables.Count
                     
-#                 }
+                }
 
-#                 Write-Host "Collected Details: Account - $($Sum.Account) | Region - $Region"
+                Write-Host "Collected Details: Account - $($Sum.Account) | Region - $Region"
 
-#                 $condition = $Sum.RDSInstances + $Sum.DynamoDBTables
-#                 if ($condition -gt 0) {
-#                     $Number = $Count++
-#                     $Sum | Add-Member -MemberType NoteProperty -Name 'No.' -Value $Number
-#                     $Summary += $Sum
-#                 }
-#             }
+                $condition = $Sum.RDSInstances + $Sum.DynamoDBTables
+                if ($condition -gt 0) {
+                    $Number = $Count++
+                    $Sum | Add-Member -MemberType NoteProperty -Name 'No.' -Value $Number
+                    $Summary += $Sum
+                }
+            }
 
-#         }
+        }
         
-#     }
+    }
     
-#     end {
+    end {
 
-#         $Summary
+        $Summary
         
-#     }
-# }
+    }
+}
+function Get-DoDDBTableInformation {
+    [CmdletBinding()]
+    param (
 
-# function Get-DoDDBTableInformation {
-#     [CmdletBinding()]
-#     param (
-
-#         $Profiles,
-#         $Regions
-#         # $Selection
+        $Profiles,
+        $Regions
         
-         
-#     )
+  
+    )
     
-#     begin {
+    begin {
 
-#         $Count          = 1
-#         $ddbTables      = @()
-#         $ddbTableList   = @()
-#         $RegexGroup             = 'AccountNumber'
-#         $RegexGroupAccountName  = 'AccountName'
-#         #$RegexAccountNumber     = "(?<$RegexGroup>\d+):db.+$"
-#         $RegexAccountNumberDDb  = "(?<$RegexGroup>\d+):table.+$" 
-#         $RegexAccountName       = "(?<PreFix>DevOps-)(?<$RegexGroupAccountName>.+)"
+        $Count          = 1
+        $ddbTables      = @()
+        $ddbTableList   = @()
+        $RegexGroup             = 'AccountNumber'
+        $RegexGroupAccountName  = 'AccountName'
+        #$RegexAccountNumber     = "(?<$RegexGroup>\d+):db.+$"
+        $RegexAccountNumberDDb  = "(?<$RegexGroup>\d+):table.+$" 
+        $RegexAccountName       = "(?<PreFix>DevOps-)(?<$RegexGroupAccountName>.+)"
         
-#     }
+    }
     
-#     process {
+    process {
 
-#         foreach ($Profile in $Profiles) {
+        foreach ($Profile in $Profiles) {
 
-#             foreach ($Region in $Regions) {
+            foreach ($Region in $Regions) {
                 
-#                 $ddbTableList   = Get-DDBTableList -ProfileName $Profile.ProfileName -Region $Region
-#                 $ddbBackupList  = Get-DDBBackupList -ProfileName $Profile.ProfileName -Region $Region
+                $ddbTableList   = Get-DDBTableList -ProfileName $Profile.ProfileName -Region $Region
+                $ddbBackupList  = Get-DDBBackupList -ProfileName $Profile.ProfileName -Region $Region
             
-#                 foreach ($ddbTable in $ddbTableList) {
+                foreach ($ddbTable in $ddbTableList) {
                     
-#                     $Table = Get-DDBTable -TableName $ddbTable -ProfileName $Profile.ProfileName -Region $Region
+                    $Table = Get-DDBTable -TableName $ddbTable -ProfileName $Profile.ProfileName -Region $Region
             
-#                     if ($ddbBackupList) {
+                    if ($ddbBackupList) {
+
+                        $BackupCount = ($ddbBackupList | Where-Object { $_.TableName -eq $Table.TableName } | Measure-Object).Count
+                        # $BackupAvailable = $ddbBackupList.TableName.Contains("$($Table.TableName)")
+                    }
+                    else {
                         
-#                         $BackupAvailable = $ddbBackupList.TableName.Contains("$($Table.TableName)")
-#                     }
-#                     else {
-            
-#                         $BackupAvailable = $false
-#                     }
+                        $BackupCount = 0
+                        # $BackupAvailable = $false
+                    }
                           
-#                     $Sum = [PSCustomObject]@{
+                    $Sum = [PSCustomObject]@{
 
-#                         'No.'               = $Count++
-#                         Account             = (($Profile.ProfileName | select-string -Pattern $RegexAccountName).Matches.Groups | Where-Object { $_.Name -eq $RegexGroupAccountName }).Value
-#                         AccountID           = (($Table.TableArn | select-string -Pattern $RegexAccountNumberDDb).Matches.Groups | Where-Object { $_.Name -eq $RegexGroup }).Value
-#                         Region              = $Region
-#                         TableName           = $Table.TableName
-#                         TableBackup         = $BackupAvailable
-#                         CreationDateTime    = $Table.CreationDateTime
-#                         ItemCount           = $Table.ItemCount
-#                         TableSizeBytes      = $Table.TableSizeBytes
-#                         TableSizeMB         = "$([math]::round($($Table.TableSizeBytes /1MB), 0)) MB"
-#                         TableStatus         = $Table.TableStatus
-#                         TableId             = $Table.TableId
-#                         TableARN            = $Table.TableArn
-#                         KeySchema           = $Table.KeySchema
-#                         GlobalSecondaryIndexes = $Table.GlobalSecondaryIndexes
+                        'No.'               = $Count++
+                        Account             = (($Profile.ProfileName | select-string -Pattern $RegexAccountName).Matches.Groups | Where-Object { $_.Name -eq $RegexGroupAccountName }).Value
+                        AccountID           = (($Table.TableArn | select-string -Pattern $RegexAccountNumberDDb).Matches.Groups | Where-Object { $_.Name -eq $RegexGroup }).Value
+                        Region              = $Region
+                        TableName           = $Table.TableName
+                        TableBackups        = $BackupCount
+                        CreationDateTime    = $Table.CreationDateTime
+                        ItemCount           = $Table.ItemCount
+                        TableSizeBytes      = $Table.TableSizeBytes
+                        TableSizeMB         = "$([math]::round($($Table.TableSizeBytes /1MB), 0)) MB"
+                        TableStatus         = $Table.TableStatus
+                        TableId             = $Table.TableId
+                        TableARN            = $Table.TableArn
+                        KeySchema           = $Table.KeySchema
+                        GlobalSecondaryIndexes = $Table.GlobalSecondaryIndexes
                         
-#                     }
-#                     $ddbTables += $Sum
+                    }
+                    $ddbTables += $Sum
 
-#                     # if ($Selection -eq 0) {
+                    # if ($Selection -eq 0) {
                         
-#                     #     Write-Host "Collected Table Details : Account - $($Sum.Account) | Region - $Region | Table - $($Sum.TableName)"
+                    #     Write-Host "Collected Table Details : Account - $($Sum.Account) | Region - $Region | Table - $($Sum.TableName)"
 
-#                     # }
+                    # }
 
                     
 
-#                 }
+                }
                 
-#             }
+            }
             
-#         }
+        }
         
-#     }
+    }
     
-#     end {
+    end {
 
-#         $ddbTables
+        $ddbTables
         
-#     }
-# }
+    }
+}
+function Get-DoRDSDBSummary {
+    [CmdletBinding()]
+    param (
 
-# function Get-DoRDSDBSummary {
-#     [CmdletBinding()]
-#     param (
-
-#         $Profiles,
-#         $Regions
+        $Profiles,
+        $Regions
         
-#     )
+    )
     
-#     begin {
+    begin {
 
-#         $Inst       = @()
-#         # $Snap       = @()
-#         # $Snapshots  = @()
+        $Inst       = @()
+        # $Snap       = @()
+        # $Snapshots  = @()
         
-#     }
+    }
     
-#     process {
+    process {
 
-#         $Regions | ForEach-Object {
+        $Regions | ForEach-Object {
     
-#             $RDSInstances = Get-RDSDBInstance -ProfileName $Profiles.ProfileName -Region $_
+            $RDSInstances = Get-RDSDBInstance -ProfileName $Profiles.ProfileName -Region $_
         
-#             if ($RDSInstances) {
+            if ($RDSInstances) {
                 
-#                 foreach ($Instance in $RDSInstances) {
+                foreach ($Instance in $RDSInstances) {
                     
-#                     $Region = $_
-#                     $DBInstanceArn      = $Instance.DBInstanceArn
-#                     # $Tags               = Get-RDSTagForResource -ResourceName $DBInstanceArn -ProfileName $Profile.ProfileName
+                    $Region = $_
+                    $DBInstanceArn      = $Instance.DBInstanceArn
+                    # $Tags               = Get-RDSTagForResource -ResourceName $DBInstanceArn -ProfileName $Profile.ProfileName
 
-#                     $Shots  = Get-RDSDBSnapshot -ProfileName $Profiles.ProfileName -DBInstanceIdentifier $DBInstanceArn -Region $Region
+                    $Shots  = Get-RDSDBSnapshot -ProfileName $Profiles.ProfileName -DBInstanceIdentifier $DBInstanceArn -Region $Region
                     
                     
-#                     #$DBClusterSnapshots = Get-RDSDBClusterSnapshot -ProfileName $Profile.ProfileName -DBClusterIdentifier $DBInstanceArn
+                    #$DBClusterSnapshots = Get-RDSDBClusterSnapshot -ProfileName $Profile.ProfileName -DBClusterIdentifier $DBInstanceArn
             
-#                     $Sum = [PSCustomObject]@{
+                    $Sum = [PSCustomObject]@{
             
-#                         Region                 = $_
-#                         DBInstanceIdentifier    = $Instance.DBInstanceIdentifier
-#                         Engine                  = $Instance.Engine
-#                         Version                 = $Instance.EngineVersion
-#                         InstanceCreateTime      = $Instance.InstanceCreateTime
-#                         DBInstanceClass         = $Instance.DBInstanceClass
+                        Region                 = $_
+                        DBInstanceIdentifier    = $Instance.DBInstanceIdentifier
+                        Engine                  = $Instance.Engine
+                        Version                 = $Instance.EngineVersion
+                        InstanceCreateTime      = $Instance.InstanceCreateTime
+                        DBInstanceClass         = $Instance.DBInstanceClass
                         
-#                         StorageThroughput       = $Instance.StorageThroughput
-#                         #Tags                    = $Tags
-#                         Snapshots               = ($Shots | Measure-Object).Count
-#                         Retention               = $Instance.BackupRetentionPeriod
-#                         #DBClusterSnapshots      = ($DBClusterSnapshots | Measure-Object).Count
+                        StorageThroughput       = $Instance.StorageThroughput
+                        #Tags                    = $Tags
+                        Snapshots               = ($Shots | Measure-Object).Count
+                        Retention               = $Instance.BackupRetentionPeriod
+                        #DBClusterSnapshots      = ($DBClusterSnapshots | Measure-Object).Count
             
-#                     }
-#                     $Inst += $Sum
-#                     # $Snapshots += $Shots
+                    }
+                    $Inst += $Sum
+                    # $Snapshots += $Shots
             
-#                 }
+                }
             
-#                 # $Snapshots | ForEach-Object {
+                # $Snapshots | ForEach-Object {
             
-#                 #     $Sum = [PSCustomObject]@{
+                #     $Sum = [PSCustomObject]@{
             
-#                 #         DBInstanceIdentifier    = $_.DBInstanceIdentifier
-#                 #         DBSnapshotIdentifier    = $_.DBSnapshotIdentifier
-#                 #         SnapshotCreateTime      = $_.SnapshotCreateTime
-#                 #         Engine                  = $_.Engine
-#                 #         SnapshotType            = $_.SnapshotType
-#                 #         Status                  = $_.Status
+                #         DBInstanceIdentifier    = $_.DBInstanceIdentifier
+                #         DBSnapshotIdentifier    = $_.DBSnapshotIdentifier
+                #         SnapshotCreateTime      = $_.SnapshotCreateTime
+                #         Engine                  = $_.Engine
+                #         SnapshotType            = $_.SnapshotType
+                #         Status                  = $_.Status
             
-#                 #     }
-#                 #     $Snap += $Sum
-#                 # }
-#             }
+                #     }
+                #     $Snap += $Sum
+                # }
+            }
 
-#         }
+        }
          
-#     }
+    }
     
-#     end {
+    end {
 
-#         $Inst
+        $Inst
            
-#     }
-# }
+    }
+}
+function Get-DoRDSSnapshotSummary {
+    [CmdletBinding()]
+    param (
 
-# function Get-DoRDSSnapshotSummary {
-#     [CmdletBinding()]
-#     param (
-
-#         $Profiles,
-#         $Regions
+        $Profiles,
+        $Regions
         
-#     )
+    )
     
-#     begin {
+    begin {
             
-#             $SummarySnapshots   = @()
-#             $Snapshots          = @()
+            $SummarySnapshots   = @()
+            $Snapshots          = @()
         
-#     }
+    }
     
-#     process {
+    process {
 
-#         $Regions | ForEach-Object {
+        $Regions | ForEach-Object {
     
-#             $RDSInstances = Get-RDSDBInstance -ProfileName $Profiles.ProfileName -Region $_
+            $RDSInstances = Get-RDSDBInstance -ProfileName $Profiles.ProfileName -Region $_
         
-#             if ($RDSInstances) {
+            if ($RDSInstances) {
                 
-#                 foreach ($Instance in $RDSInstances) {
+                foreach ($Instance in $RDSInstances) {
 
-#                     $Region = $_
+                    $Region = $_
                 
-#                     $DBInstanceArn      = $Instance.DBInstanceArn
-#                     # $Tags               = Get-RDSTagForResource -ResourceName $DBInstanceArn -ProfileName $Profile.ProfileName
-#                     $Shots              = Get-RDSDBSnapshot -ProfileName $Profiles.ProfileName -DBInstanceIdentifier $DBInstanceArn -Region $Region
-#                     #$DBClusterSnapshots = Get-RDSDBClusterSnapshot -ProfileName $Profile.ProfileName -DBClusterIdentifier $DBInstanceArn
+                    $DBInstanceArn      = $Instance.DBInstanceArn
+                    # $Tags               = Get-RDSTagForResource -ResourceName $DBInstanceArn -ProfileName $Profile.ProfileName
+                    $Shots              = Get-RDSDBSnapshot -ProfileName $Profiles.ProfileName -DBInstanceIdentifier $DBInstanceArn -Region $Region
+                    #$DBClusterSnapshots = Get-RDSDBClusterSnapshot -ProfileName $Profile.ProfileName -DBClusterIdentifier $DBInstanceArn
 
-#                     $Snapshots += $Shots
+                    $Snapshots += $Shots
             
-#                 }
+                }
             
-#                 $Snapshots | ForEach-Object {
+                $Snapshots | ForEach-Object {
             
-#                     $Summary= [PSCustomObject]@{
+                    $Summary= [PSCustomObject]@{
                         
-#                         AvailabilityZone        = $_.AvailabilityZone
-#                         DBInstanceIdentifier    = $_.DBInstanceIdentifier
-#                         DBSnapshotIdentifier    = $_.DBSnapshotIdentifier
-#                         SnapshotCreateTime      = $_.SnapshotCreateTime
-#                         Engine                  = $_.Engine
-#                         SnapshotType            = $_.SnapshotType
-#                         Status                  = $_.Status
+                        AvailabilityZone        = $_.AvailabilityZone
+                        DBInstanceIdentifier    = $_.DBInstanceIdentifier
+                        DBSnapshotIdentifier    = $_.DBSnapshotIdentifier
+                        SnapshotCreateTime      = $_.SnapshotCreateTime
+                        Engine                  = $_.Engine
+                        SnapshotType            = $_.SnapshotType
+                        Status                  = $_.Status
             
-#                     }
-#                     $SummarySnapshots += $Summary
-#                 }
-#             }
+                    }
+                    $SummarySnapshots += $Summary
+                }
+            }
         
-#         }
+        }
         
-#     }
+    }
     
-#     end {
+    end {
             
-#         $SummarySnapshots
+        $SummarySnapshots
         
-#     }
-# }
+    }
+}
+function Get-DoRegexDetails {
+    param (
 
-# function Get-DoRegexDetails {
-#     param (
+        $InputString,
+        $Pattern,
+        $Group
+    )
 
-#         $InputString,
-#         $Pattern,
-#         $Group
-#     )
-
-#     $Results = (($InputString | select-string -Pattern $Pattern).Matches.Groups | Where-Object { $_.Name -eq $Group }).Value
+    $Results = (($InputString | select-string -Pattern $Pattern).Matches.Groups | Where-Object { $_.Name -eq $Group }).Value
     
-#     $Results
-# }
+    $Results
+}
+function Request-AnotherAccountSelection {
+    [CmdletBinding()]
+    param(
+        # [Parameter(Mandatory)]
+        # [ValidateNotNullOrEmpty()]
+        # [string]$Title,
 
-# function Request-AnotherAccountSelection {
-#     [CmdletBinding()]
-#     param(
-#         # [Parameter(Mandatory)]
-#         # [ValidateNotNullOrEmpty()]
-#         # [string]$Title,
-
-#         [Parameter(Mandatory)]
-#         [ValidateNotNullOrEmpty()]
-#         [string]$Question
-#     )
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string]$Question
+    )
     
-#     $yes = [ChoiceDescription]::new('&Yes', 'View Another Account')
-#     $no = [ChoiceDescription]::new('&No', 'Quit and Exit')
+    $yes = [ChoiceDescription]::new('&Yes', 'View Another Account')
+    $no = [ChoiceDescription]::new('&No', 'Quit and Exit')
     
 
-#     $options = [ChoiceDescription[]]($yes, $no)
+    $options = [ChoiceDescription[]]($yes, $no)
 
-#     $result = $host.ui.PromptForChoice("", $Question, $options, 0)
-#     # $result = $host.ui.PromptForChoice($Title, $Question, $options, 0)
+    $result = $host.ui.PromptForChoice("", $Question, $options, 0)
+    # $result = $host.ui.PromptForChoice($Title, $Question, $options, 0)
 
-#     switch ($result) {
-#         0 { 
+    switch ($result) {
+        0 { 
              
-#             $Option = $true
+            $Option = $true
 
         
-#         }
-#         1 { 
+        }
+        1 { 
             
-#             $Option = $false
-#         }
+            $Option = $false
+        }
         
-#     }
+    }
 
-#     $Option
+    $Option
 
-# }
+}
+function Request-DatabaseTypeSelection {
+    [CmdletBinding()]
+    param(
+        # [Parameter(Mandatory)]
+        # [ValidateNotNullOrEmpty()]
+        # [string]$Title,
 
-# function Request-DatabaseTypeSelection {
-#     [CmdletBinding()]
-#     param(
-#         # [Parameter(Mandatory)]
-#         # [ValidateNotNullOrEmpty()]
-#         # [string]$Title,
-
-#         [Parameter(Mandatory)]
-#         [ValidateNotNullOrEmpty()]
-#         [string]$Question
-#     )
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string]$Question
+    )
     
-#     $ddb = [ChoiceDescription]::new('&DynamoDB', 'View DynamoDB Table Details')
-#     $rds = [ChoiceDescription]::new('&RDS', 'View RDS Database Details')
+    $ddb = [ChoiceDescription]::new('&DynamoDB', 'View DynamoDB Table Details')
+    $rds = [ChoiceDescription]::new('&RDS', 'View RDS Database Details')
     
 
-#     $options = [ChoiceDescription[]]($ddb, $rds)
+    $options = [ChoiceDescription[]]($ddb, $rds)
 
-#     $result = $host.ui.PromptForChoice("", $Question, $options, 0)
-#     # $result = $host.ui.PromptForChoice($Title, $Question, $options, 0)
+    $result = $host.ui.PromptForChoice("", $Question, $options, 0)
+    # $result = $host.ui.PromptForChoice($Title, $Question, $options, 0)
 
-#     switch ($result) {
-#         0 { 
+    switch ($result) {
+        0 { 
              
-#             $Option = 'DynamoDB'
+            $Option = 'DynamoDB'
 
         
-#         }
-#         1 { 
+        }
+        1 { 
             
-#             $Option = 'RDS'
-#         }
+            $Option = 'RDS'
+        }
         
-#     }
+    }
 
-#     $Option
+    $Option
+}
+function Request-ViewBackupsSelection {
+    [CmdletBinding()]
+    param(
+        # [Parameter(Mandatory)]
+        # [ValidateNotNullOrEmpty()]
+        # [string]$Title,
 
-# }
-
-# function Request-ViewBackupsSelection {
-#     [CmdletBinding()]
-#     param(
-#         # [Parameter(Mandatory)]
-#         # [ValidateNotNullOrEmpty()]
-#         # [string]$Title,
-
-#         [Parameter(Mandatory)]
-#         [ValidateNotNullOrEmpty()]
-#         [string]$Question
-#     )
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string]$Question
+    )
     
-#     $yes = [ChoiceDescription]::new('&Yes', 'View Backups')
-#     $no = [ChoiceDescription]::new('&No', 'Quit and Exit')
+    $yes = [ChoiceDescription]::new('&Yes', 'View Backups')
+    $no = [ChoiceDescription]::new('&No', 'Quit and Exit')
     
 
-#     $options = [ChoiceDescription[]]($yes, $no)
+    $options = [ChoiceDescription[]]($yes, $no)
 
-#     $result = $host.ui.PromptForChoice("", $Question, $options, 0)
-#     # $result = $host.ui.PromptForChoice($Title, $Question, $options, 0)
+    $result = $host.ui.PromptForChoice("", $Question, $options, 0)
+    # $result = $host.ui.PromptForChoice($Title, $Question, $options, 0)
 
-#     switch ($result) {
-#         0 { 
+    switch ($result) {
+        0 { 
              
-#             $Option = $true
+            $Option = $true
 
         
-#         }
-#         1 { 
+        }
+        1 { 
             
-#             $Option = $false
-#         }
+            $Option = $false
+        }
         
-#     }
+    }
 
-#     $Option
+    $Option
 
-# }
+}
+function Request-YesNoSelection {
+    [CmdletBinding()]
+    param(
+        # [Parameter(Mandatory)]
+        # [ValidateNotNullOrEmpty()]
+        # [string]$Title,
 
-# function Request-YesNoSelection {
-#     [CmdletBinding()]
-#     param(
-#         # [Parameter(Mandatory)]
-#         # [ValidateNotNullOrEmpty()]
-#         # [string]$Title,
-
-#         [Parameter(Mandatory)]
-#         [ValidateNotNullOrEmpty()]
-#         [string]$Question
-#     )
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string]$Question
+    )
     
-#     $yes = [ChoiceDescription]::new('&Yes', 'Confirm Question')
-#     $no = [ChoiceDescription]::new('&No', 'Quit and Exit')
+    $yes = [ChoiceDescription]::new('&Yes', 'Confirm Question')
+    $no = [ChoiceDescription]::new('&No', 'Quit and Exit')
     
 
-#     $options = [ChoiceDescription[]]($yes, $no)
+    $options = [ChoiceDescription[]]($yes, $no)
 
-#     $result = $host.ui.PromptForChoice("", $Question, $options, 0)
-#     # $result = $host.ui.PromptForChoice($Title, $Question, $options, 0)
+    $result = $host.ui.PromptForChoice("", $Question, $options, 0)
+    # $result = $host.ui.PromptForChoice($Title, $Question, $options, 0)
 
-#     switch ($result) {
-#         0 { 
+    switch ($result) {
+        0 { 
              
-#             $Option = $true
+            $Option = $true
 
         
-#         }
-#         1 { 
+        }
+        1 { 
             
-#             $Option = $false
-#         }
+            $Option = $false
+        }
         
-#     }
+    }
 
-#     $Option
+    $Option
 
-# }
+}
 
-
-
-# #endregion
+#endregion
 
 # -------------------------------------------------------------------------------------------------------------------------------------------------- #
 #                                                        COLLECT ALL THE DATABASE INFORMATION                                                        #
 # -------------------------------------------------------------------------------------------------------------------------------------------------- #
-#region COLLECT ALL THE DATABASE INFORMATION
+# #region COLLECT ALL THE DATABASE INFORMATION
 
 $SummaryFULL    = Get-DoAWSDBInformation $ProfilesFULL $Regions
 
-#endregion
+# #endregion
 
 do {
 
@@ -642,7 +629,7 @@ do {
             # ----------------------------------------------------- Check if any of the tables have backups ---------------------------------------------------- #
             #region Check if any of the tables have backups
 
-            $TablesWithBackups = $DynamoDBSummary | Where-Object { $_.TableBackup -eq $true } | Select-Object $ColumnsDDBTables 
+            $TablesWithBackups = $DynamoDBSummary | Where-Object { $_.TableBackups -gt 0 } | Select-Object $ColumnsDDBTables 
             
             if ($TablesWithBackups) {
 
@@ -661,12 +648,22 @@ do {
                     $true { 
 
                         $BackupsList    = Get-DDBBackupList -ProfileName $SelectedProfile.ProfileName 
-                        $Columns        = 'TableName', 'BackupName', 'BackupCreationDateTime', 'BackupType', 'BackupStatus','BackupSizeBytes'
-                        $BackupsList | Sort-Object BackupCreationDateTime -Descending  | Select-Object -Property $Columns | Format-Table -AutoSize
 
-                        # Write-Host 'Press any key to continue...';
-                        Write-Host '';
-                        # $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown');
+                        $Columns        = 'TableName', 'BackupName', 'BackupCreationDateTime', 'BackupType', 'BackupStatus','BackupSizeBytes'
+                        foreach ($Table in $TablesWithBackups) {
+                            
+                            $BackupsList | Where-Object {$_.TableName -eq $Table.TableName} | Sort-Object BackupCreationDateTime -Descending | Select-Object $Columns  | Format-Table -AutoSize
+                            Write-Host ''
+                            Write-Host 'Press any key to continue...';
+                            $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown');
+                        }
+
+                        # $Columns        = 'TableName', 'BackupName', 'BackupCreationDateTime', 'BackupType', 'BackupStatus','BackupSizeBytes'
+                        # $BackupsList | Sort-Object BackupCreationDateTime -Descending  | Select-Object -Property $Columns | Format-Table -AutoSize
+
+                        # # Write-Host 'Press any key to continue...';
+                        # Write-Host '';
+                        # # $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown');
 
                      }
                     $false {
