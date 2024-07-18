@@ -605,7 +605,8 @@ do {
     # ----------------------------------------------------------- Question - DynamoDB or RDS ----------------------------------------------------------- #
     #region Question - DynamoDB or RDS
 
-    $OptionDatabaseType = Request-DatabaseTypeSelection -Question 'View DynamoDB or RDS Details'
+    $OptionDatabaseType = Request-DatabaseTypeSelection -Question 'View DynamoDB or RDS Details?'
+    Write-Host ""
 
     #endregion
 
@@ -633,7 +634,7 @@ do {
             
             if ($TablesWithBackups) {
 
-                Write-Host "NOTE: $($TablesWithBackups.Count) tables in this account have backups" -ForegroundColor Yellow
+                Write-Host "NOTE: $($TablesWithBackups.Count) table(s) in this account with backups" -ForegroundColor Yellow
                 
                 # ------------------------------------------------------------ Question - View Backups? ------------------------------------------------------------ #
                 #region Question - View Backups?
