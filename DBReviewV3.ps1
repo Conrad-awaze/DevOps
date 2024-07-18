@@ -647,7 +647,11 @@ do {
                 switch ($OptionViewBackups) {
                     $true { 
 
-                        $BackupsList    = Get-DDBBackupList -ProfileName $SelectedProfile.ProfileName 
+                        $BackupsList    =  $Regions | ForEach-Object {
+
+                            Get-DDBBackupList -ProfileName $SelectedProfile.ProfileName -Region $_
+                            
+                        } #Get-DDBBackupList -ProfileName $SelectedProfile.ProfileName -Region eu-west-2
 
                         $Columns        = 'TableName', 'BackupName', 'BackupCreationDateTime', 'BackupType', 'BackupStatus','BackupSizeBytes'
                         foreach ($Table in $TablesWithBackups) {
