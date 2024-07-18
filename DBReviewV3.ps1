@@ -13,6 +13,7 @@ $Regions                = "eu-central-1" , "eu-west-2" , "eu-west-1", "us-east-1
 # $Columns                = 'Account', 'AccountID','RDS Instances','DynamoDB Tables'
 $ColumnsFULL            = 'No.','Account', 'AccountID', 'Region', 'RDSInstances', 'DynamoDBTables'
 $ColumnsDDBTables       = 'No.', 'Account', 'Region', 'TableName', 'TableBackup', 'CreationDateTime', 'ItemCount','TableSizeBytes', 'TableSizeMB', 'TableStatus', 'AccountID'
+$RDSSnapshotColumns  = 'AvailabilityZone', 'DBInstanceIdentifier', 'DBSnapshotIdentifier', 'SnapshotCreateTime', 'SnapshotType', 'Status'
 $ProfilesFULL           = Get-AWSCredentials -ListProfileDetail | Where-Object { $_.ProfileName -like 'DevOps*' }
 
 #endregion
@@ -21,55 +22,17 @@ $ProfilesFULL           = Get-AWSCredentials -ListProfileDetail | Where-Object {
 #                                                                      FUNCTIONS                                                                     #
 # -------------------------------------------------------------------------------------------------------------------------------------------------- #
 #region FUNCTIONS
-function Request-AnotherAccountSelection {
-    [CmdletBinding()]
-    param(
-        # [Parameter(Mandatory)]
-        # [ValidateNotNullOrEmpty()]
-        # [string]$Title,
-
-        [Parameter(Mandatory)]
-        [ValidateNotNullOrEmpty()]
-        [string]$Question
-    )
-    
-    $yes = [ChoiceDescription]::new('&Yes', 'View Another Account')
-    $no = [ChoiceDescription]::new('&No', 'Quit and Exit')
-    
-
-    $options = [ChoiceDescription[]]($yes, $no)
-
-    $result = $host.ui.PromptForChoice("", $Question, $options, 0)
-    # $result = $host.ui.PromptForChoice($Title, $Question, $options, 0)
-
-    switch ($result) {
-        0 { 
-             
-            $Option = $true
-
-        
-        }
-        1 { 
-            
-            $Option = $false
-        }
-        
-    }
-
-    $Option
-
-}
 
 #endregion
 
-# -------------------------------------------------------------------------------------------------------------------------------------------------- #
-#                                                        COLLECT ALL THE DATABASE INFORMATION                                                        #
-# -------------------------------------------------------------------------------------------------------------------------------------------------- #
-#region COLLECT ALL THE DATABASE INFORMATION
+# # -------------------------------------------------------------------------------------------------------------------------------------------------- #
+# #                                                        COLLECT ALL THE DATABASE INFORMATION                                                        #
+# # -------------------------------------------------------------------------------------------------------------------------------------------------- #
+# #region COLLECT ALL THE DATABASE INFORMATION
 
-$SummaryFULL    = Get-DoAWSDBInformation $ProfilesFULL $Regions
+# $SummaryFULL    = Get-DoAWSDBInformation $ProfilesFULL $Regions
 
-#endregion
+# #endregion
 
 do {
 
@@ -135,8 +98,113 @@ do {
 
             #endregion
 
+            # ----------------------------------------------------- Check if any of the tables have backups ---------------------------------------------------- #
+            #region Check if any of the tables have backups
+
+            $TablesWithBackups = $DynamoDBSummary | Where-Object { $_.TableBackup -eq $true } | Select-Object $ColumnsDDBTables 
+            
+            if ($TablesWithBackups) {
+
+                Write-Host "NOTE: $($TablesWithBackups.Count) tables in this account have backups" -ForegroundColor Yellow
+                
+                # ------------------------------------------------------------ Question - View Backups? ------------------------------------------------------------ #
+                #region Question - View Backups?
+
+                Write-Host ""
+                $OptionViewBackups = Request-ViewBackupsSelection -Question 'View Backups?'
+                
+                # --------------------- Based on the user selection, the script will either display the tables with backups or exit the script. -------------------- #
+                #region display the tables with backups or exit the script.
+
+                switch ($OptionViewBackups) {
+                    $true { 
+
+                        $BackupsList    = Get-DDBBackupList -ProfileName $SelectedProfile.ProfileName 
+                        $Columns        = 'TableName', 'BackupName', 'BackupCreationDateTime', 'BackupType', 'BackupStatus','BackupSizeBytes'
+                        $BackupsList | Sort-Object BackupCreationDateTime -Descending  | Select-Object -Property $Columns | Format-Table -AutoSize
+
+                        # Write-Host 'Press any key to continue...';
+                        Write-Host '';
+                        # $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown');
+
+                     }
+                    $false {
+
+                        break
+                    }
+                }
+                
+                #endregion
+
+                #endregion
+            }
+            
+            #endregion
+
         }
-        RDS {}
+        RDS {
+                
+                # ---------------------------------------------------------- Collect RDS Information ---------------------------------------------------------- #
+                #region Collect RDS Information
+    
+                Write-Host "Collecting RDS Details for the [$SelectedAccountName] Account...!!"
+
+                $RDS        = Get-DoRDSDBSummary $SelectedProfile $Regions 
+                $Snapshots  = Get-DoRDSSnapshotSummary $SelectedProfile  $Regions
+                $RDS | Format-Table -AutoSize
+                
+                #endregion
+
+                # ----------------------------------------------------- Check if any Snapshots have been taken ----------------------------------------------------- #
+                #region Check if any Snapshots have been taken
+
+                if ($Snapshots) {
+                    
+                    Write-Host "NOTE: Snapshots available in this account" -ForegroundColor Yellow
+
+                    # ----------------------------------------------------------- Question - View Snapshots? ----------------------------------------------------------- #
+                    #region Question - View Snapshots?
+
+                    Write-Host ''
+                    $OptionViewSnapshots = Request-YesNoSelection -Question 'View Snapshots?'
+
+                    # -------------------------- Based on the user selection, the script will either display the snapshots or exit the script. ------------------------- #
+                    #region display the snapshots or exit the script.
+
+                    switch ($OptionViewSnapshots) {
+                        $true { 
+
+                            foreach ($Instance in $RDS) {
+
+                                if ($Instance.Snapshots -gt 0) {
+                                    
+                                    $Snapshots | Where-Object {$_.DBInstanceIdentifier -eq $Instance.DBInstanceIdentifier}  |Select-Object $RDSSnapshotColumns |
+                                Sort-Object SnapshotCreateTime -Descending  |Format-Table -AutoSize
+
+                                Write-Host ''
+                                Write-Host 'Press any key to continue...';
+                                $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown');
+                                }
+
+                            }
+
+                        }
+                        $false {
+
+                            break
+                        }
+                    }
+                    
+                    #endregion
+                    
+                    #endregion
+
+                }
+                
+                #endregion
+
+                
+        }
     }
 
     #endregion
