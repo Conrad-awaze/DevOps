@@ -620,7 +620,7 @@ do {
             # ---------------------------------------------------------- Collect DynamoDB Information ---------------------------------------------------------- #
             #region Collect DynamoDB Information
 
-            Write-Host "Collecting DynamoDB Details for the [$SelectedAccountName] Account...!!"
+            Write-Host "Collecting DynamoDB Details for the [$SelectedAccountName] Account...!!" -ForegroundColor Green
             
             $DynamoDBSummary  = Get-DoDDBTableInformation $SelectedProfile $Regions
             $DynamoDBSummary | Select-Object $ColumnsDDBTables | Format-Table -AutoSize
@@ -690,7 +690,7 @@ do {
                 # ---------------------------------------------------------- Collect RDS Information ---------------------------------------------------------- #
                 #region Collect RDS Information
     
-                Write-Host "Collecting RDS Details for the [$SelectedAccountName] Account...!!"
+                Write-Host "Collecting RDS Details for the [$SelectedAccountName] Account...!!" -ForegroundColor Green
 
                 $RDS        = Get-DoRDSDBSummary $SelectedProfile $Regions 
                 $Snapshots  = Get-DoRDSSnapshotSummary $SelectedProfile  $Regions
