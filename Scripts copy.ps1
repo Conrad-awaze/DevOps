@@ -3,7 +3,7 @@ docker cp '/Users/conrad.gauntlett/.local/share/powershell/Modules/AWS.Tools.Dyn
 docker cp '/Users/conrad.gauntlett/.local/share/powershell/Modules/AWS.Tools.Common' PSU:/opt/microsoft/powershell/7/Modules/AWS.Tools.Common/
 
 docker cp '/Users/conrad.gauntlett/.local/share/powershell/Modules/AWS.Tools.RDS' PSU:/opt/microsoft/powershell/7/Modules/AWS.Tools.RDS/
-docker cp '/Users/conrad.gauntlett/WorkArea/aws' PSU:/home/.aws/
+docker cp '/Users/conrad.gauntlett/WorkArea/aws' PSU:/root/.aws/
 
 docker run --name 'PSU' -it -p 5000:5000 ironmansoftware/universal
 
