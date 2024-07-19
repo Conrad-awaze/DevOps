@@ -556,11 +556,11 @@ function Request-YesNoSelection {
 # -------------------------------------------------------------------------------------------------------------------------------------------------- #
 #                                                        COLLECT ALL THE DATABASE INFORMATION                                                        #
 # -------------------------------------------------------------------------------------------------------------------------------------------------- #
-# #region COLLECT ALL THE DATABASE INFORMATION
+#region COLLECT ALL THE DATABASE INFORMATION
 
 $SummaryFULL    = Get-DoAWSDBInformation $ProfilesFULL $Regions
 
-# #endregion
+#endregion
 
 do {
 
