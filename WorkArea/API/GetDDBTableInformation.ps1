@@ -1,4 +1,5 @@
-# /GetDDBTableInformation/:AccountName
+# /GetDDBTableInformation/:AccountName  /DBMonitor/GetAccountSummary/:AccountName
+
 $AccountName    = 'Owner-Services-PROD' #Apex-PROD' Owner-Services-PROD
 
 Import-Module AWS.Tools.Common, AWS.Tools.DynamoDBv2, AWS.Tools.RDS
