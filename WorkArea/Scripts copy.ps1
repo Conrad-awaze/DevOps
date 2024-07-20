@@ -7,6 +7,8 @@ docker cp '/Users/conrad.gauntlett/WorkArea/aws' PSU:/root/.aws/
 
 docker run --name 'PSU' -it -p 5000:5000 ironmansoftware/universal
 
+$Account 
+
 # # Remove-Module DevOpsToolkit
 # Import-Module AWS.Tools.Common, AWS.Tools.DynamoDBv2, AWS.Tools.RDS
 # Import-Module '/Users/conrad.gauntlett/WorkArea/Repos/DBA_MISC/PowerShell/Modules/DevOpsToolkit'
