@@ -1,3 +1,8 @@
+Import-Module AWS.Tools.Common, AWS.Tools.DynamoDBv2, AWS.Tools.RDS
+
+# -------------------------------------------------------------------- App Theme ------------------------------------------------------------------- #
+#region App Theme
+
 $Theme = @{
   palette = @{
     primary = @{
@@ -105,6 +110,9 @@ $Theme = @{
   }
 }
 
+#endregion
+
+
 New-UDDashboard -Theme $theme -Title "Database Monitor" -Content {
 
   # -------------------------------------------------------------- Generate Account list ------------------------------------------------------------- #
@@ -117,23 +125,37 @@ New-UDDashboard -Theme $theme -Title "Database Monitor" -Content {
   $AccountList += 'AllAccounts'
   
   #endregion
-    
+  
+  # -------------------------------------------------- Card - Account Summary and brief description -------------------------------------------------- #
+  #region Card - Account Summary and brief description
+
   New-UDCard -Title 'Account Summary' -Content {
 
-      "View a summary of the AWS Accounts."
+    "View a summary of the AWS Accounts"
+  
   }
-
+  
+  #endregion
+  
   New-UDForm -Content {
 
     # ------------------------------------------------------------- Account Drop Down List ------------------------------------------------------------- #
+    #region Account Drop Down List
+
     New-UDSelect -Option {
+
       $AccountList | ForEach-Object {
+
         New-UDSelectOption -Name $_ -Value $_
+
       }
-  } -Label 'Account Name' -Id 'AccountList' 
+
+    } -Label 'Account' -Id 'AccountList' 
 
     #New-UDAutocomplete -Options @( $AccountList) -id 'AccountList' -Label 'Account Name' -Value 'Select Account Name' 
-
+    
+    #endregion
+    
   } -OnSubmit {
 
     # --------------------------------------------------------------- Get Account Summary -------------------------------------------------------------- #
@@ -141,8 +163,8 @@ New-UDDashboard -Theme $theme -Title "Database Monitor" -Content {
 
     $AccountName    = "$($EventData.AccountList)"
     $AccountSummary = Invoke-RestMethod http://localhost:5000/DBMonitor/GetAccountSummary/$AccountName -Method GET
+    $Columns        = @(
 
-    $Columns = @(
         New-UDTableColumn -Property 'Account' -Title 'Account' -IncludeInSearch
         New-UDTableColumn -Property 'AccountID' -Title 'AccountID'
         New-UDTableColumn -Property 'Region' -Title 'Region' -IncludeInSearch
@@ -153,9 +175,10 @@ New-UDDashboard -Theme $theme -Title "Database Monitor" -Content {
             Show-UDToast -Message $EventData.Account 
           } 
       }
+
     )
 
-    Set-UDElement -Id 'results' -Content {
+    Set-UDElement -Id 'AccountResults' -Content {
 
       New-UDTable -Data $($AccountSummary) -Columns $Columns -ShowPagination -ShowSearch
 
@@ -172,7 +195,7 @@ New-UDDashboard -Theme $theme -Title "Database Monitor" -Content {
 
   }
 
-  New-UDElement -Id 'results' -Tag 'div'
+  New-UDElement -Id 'AccountResults' -Tag 'div'
   
 
 } #-Navigation $Navigation -NavigationLayout Temporary 
