@@ -9,6 +9,18 @@ docker run --name 'PSU' -it -p 5000:5000 ironmansoftware/universal
 
 $Account 
 
+Import-Module AWS.Tools.Common, AWS.Tools.DynamoDBv2, AWS.Tools.RDS
+
+Get-Command -Module AWS.Tools.RDS
+
+$RDS = Get-RDSDBInstance -ProfileName 'DevOps-Novosol-PROD' -Region 'eu-central-1'
+$Recommendations = Get-RDSDBRecommendation -ProfileName 'DevOps-Novosol-PROD' -Region 'eu-central-1' 
+$Recommendations[2]
+
+
+$Recommendations | where-object {$_.ResourceArn -Match 'drupal-db-prod'} |Sort-Object  UpdatedTime -Descending | Select-Object -First 1
+
+
 # # Remove-Module DevOpsToolkit
 # Import-Module AWS.Tools.Common, AWS.Tools.DynamoDBv2, AWS.Tools.RDS
 # Import-Module '/Users/conrad.gauntlett/WorkArea/Repos/DBA_MISC/PowerShell/Modules/DevOpsToolkit'
