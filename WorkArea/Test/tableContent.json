@@ -1,0 +1,15 @@
+{
+    "PK": "Roles",
+    "SK": "databasemonitor#avr-pricing",
+    "Account": "AVR-Pricing-PROD",
+    "ARN": "arn:aws:iam::771654826489:role/avr-pricing-prod-database-monitor",
+    "Status": "Active"
+}
+
+// {
+//     "PK": "Roles",
+//     "SK": "databasemonitor#avr-pricing",
+//     "Account": "AVR-Pricing-PROD",
+//     "ARN": "arn:aws:iam::771654826489:role/avr-pricing-prod-database-monitor",
+//     "Status": "Active"
+// }
