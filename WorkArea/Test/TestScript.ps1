@@ -112,7 +112,6 @@ function Get-DDBTableDetails {
 
 
 
-
 function Get-RDSDatabaseSummary {
     [CmdletBinding()]
     param (
@@ -161,8 +160,10 @@ function Get-RDSDatabaseSummary {
                         $LatestRestorableTime = ""
 
                     } 
-                    
-        
+
+                    $ExpireTimeSpan  = $( New-TimeSpan $(Get-Date) $($Instance.CertificateDetails.ValidTill)).ToString("dd' days'")
+                    # $ExpireTimeSpan  = $( New-TimeSpan $(Get-Date) $($Instance.CertificateDetails.ValidTill)).ToString("dd' days 'hh' hrs'")
+
                     $Sum = [PSCustomObject]@{
                         
                         AccountName             = $AccountName
@@ -176,7 +177,8 @@ function Get-RDSDatabaseSummary {
                         StorageThroughput       = $Instance.StorageThroughput
                         DeletionProtection      = $Instance.DeletionProtection
                         CertificateAuthority    = $Instance.CertificateDetails.CAIdentifier
-                        CertificateExpiration   = $Instance.CertificateDetails.ValidTill
+                        CertificateExpiration   = ($Instance.CertificateDetails.ValidTill).ToString("dd/MM/yyyy HH:mm:ss")
+                        ExpireDuration          = $ExpireTimeSpan
                         Snapshots               = ($Shots | Measure-Object).Count
                         LatestSnapshot          = $LastestSnap
                         Retention               = $Instance.BackupRetentionPeriod
@@ -199,6 +201,9 @@ function Get-RDSDatabaseSummary {
            
     }
 }
+
+
+
 Get-DDBTableList -ProfileName  DevOps-Apex-PROD -Region eu-west-2
 $Table =  Get-DDBTable -TableName 'prod-accommodation' -ProfileName DevOps-Apex-PROD -Region eu-west-2
 Get-DDBTimeToLive -TableName 'prod-accommodation' -ProfileName DevOps-Apex-PROD -Region eu-west-2
@@ -220,7 +225,7 @@ $Plan.advancedBackupSettings
 Get-RDSCertificates -ProfileName DevOps-AVR-Pricing-PROD -Region eu-west-2  
 $RDS = Get-RDSDBInstance -ProfileName DevOps-AVR-Pricing-PROD -Region eu-west-2
 
-($RDS | where { $_.DBInstanceIdentifier -eq 'repricing-rds-instance-prod' }).CertificateDetails.ValidTill
+($RDS | where { $_.DBInstanceIdentifier -eq 'repricing-rds-instance-prod' }).CertificateDetails.CAIdentifier
 
 $Maint = Get-RDSPendingMaintenanceActions -ProfileName DevOps-AVR-Pricing-PROD -Region eu-west-2
 ($Maint |where { $_.ResourceIdentifier -eq 'arn:aws:rds:eu-west-2:771654826489:db:pricing-event-store-1' }).PendingMaintenanceActionDetails

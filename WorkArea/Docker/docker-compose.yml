@@ -1,0 +1,12 @@
+version: "3.7"
+services:
+  PSU:
+    container_name: PSUTest
+    image: ironmansoftware/universal:latest
+    ports:
+      - 5000:5000
+    restart: unless-stopped
+    environment:
+      - TZ=Europe/London
+    volumes:
+      - /Users/conrad.gauntlett/docker/volumes/PSU:/root
