@@ -18,6 +18,50 @@ docker push conradg69/database-monitor:latest
 docker commit 'database-monitor' database-monitor
 docker commit 'database-monitor-v5' database-monitor-v5
 
+
+
+docker commit 'database-monitor' 063778477900.dkr.ecr.eu-west-2.amazonaws.com/devops-db-monitor:latest
+
+docker image ls
+
+aws ecr get-login-password --region eu-west-2 --profile Power_user-063778477900 | docker login --username AWS --password-stdin 063778477900.dkr.ecr.eu-west-2.amazonaws.com
+
+aws sso login --profile Power_user-063778477900
+
+docker push 063778477900.dkr.ecr.eu-west-2.amazonaws.com/devops-db-monitor:latest
+
+
+# -------------------------------------------------------------------------------------------------------------------------------------------------- #
+#                                                                    SSIO SANDPIT                                                                    #
+# -------------------------------------------------------------------------------------------------------------------------------------------------- #
+
+docker commit 'database-monitor' 587525780573.dkr.ecr.eu-west-2.amazonaws.com/dev-dba-dashboard
+
+docker image ls
+
+docker push 587525780573.dkr.ecr.eu-west-2.amazonaws.com/dev-dba-dashboard
+
+aws ecr get-login-password --region eu-west-2 --profile DBA-Sandpit | docker login --username AWS --password-stdin 587525780573.dkr.ecr.eu-west-2.amazonaws.com
+
+# multiple tags on a single image
+docker tag 587525780573.dkr.ecr.eu-west-2.amazonaws.com/dev-dba-dashboard:latest 587525780573.dkr.ecr.eu-west-2.amazonaws.com/dev-dba-dashboard:1.0
+docker push 587525780573.dkr.ecr.eu-west-2.amazonaws.com/dev-dba-dashboard:latest && docker push 587525780573.dkr.ecr.eu-west-2.amazonaws.com/dev-dba-dashboard:1.0
+
+# aws ecr get-login-password --region eu-west-2 --profile DBA-Sandpit | docker login --username AWS --password-stdin 587525780573.dkr.ecr.eu-west-2.amazonaws.com
+# docker push 587525780573.dkr.ecr.eu-west-2.amazonaws.com/db-dashboard:latest
+
+# -------------------------------------------------------------------------------------------------------------------------------------------------- #
+
+docker commit 'database-monitor-v5' 587525780573.dkr.ecr.eu-west-2.amazonaws.com/database-monitor-v5
+
+docker image ls
+
+docker push 587525780573.dkr.ecr.eu-west-2.amazonaws.com/database-monitor-v5
+
+aws ecr get-login-password --region eu-west-2 --profile DBA-Sandpit | docker login --username AWS --password-stdin 587525780573.dkr.ecr.eu-west-2.amazonaws.com
+
+
+
 docker run --name 'database-monitor' -it -p 5000:5000 database-monitor
 docker run --name 'database-monitor-v5' -it -p 5000:5000 database-monitor-v5
 
